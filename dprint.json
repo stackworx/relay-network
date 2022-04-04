@@ -2,7 +2,9 @@
   "incremental": true,
   "indentWidth": 2,
   "typescript": {
-    "spaceSurroundingProperties": false
+    "spaceSurroundingProperties": false,
+    "exportDeclaration.spaceSurroundingNamedExports": false,
+    "importDeclaration.spaceSurroundingNamedImports": false
   },
   "json": {},
   "includes": ["**/*.{ts,tsx,js,jsx,cjs,mjs,json}"],

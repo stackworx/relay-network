@@ -1,14 +1,7 @@
-import {
-  CacheConfig,
-  FetchFunction,
-  GraphQLResponse,
-  RequestParameters,
-  UploadableMap,
-  Variables,
-} from "relay-runtime";
-import ky, { HTTPError } from "ky";
+import ky, {HTTPError} from "ky";
+import {CacheConfig, FetchFunction, GraphQLResponse, RequestParameters, UploadableMap, Variables} from "relay-runtime";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
-import extractFiles, { ExtractableFile } from "extract-files/extractFiles.mjs";
+import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
 
@@ -29,28 +22,26 @@ export function createFetchQuery(config: Configuration): FetchFunction {
     request: RequestParameters,
     variables: Variables,
     _cacheConfig: CacheConfig,
-    _uploadables?: UploadableMap | null
+    _uploadables?: UploadableMap | null,
   ): Promise<GraphQLResponse> {
     if (!request.text) {
       throw new Error("Persisted Queries are not supported");
     }
 
-    const url =
-      typeof config.url === "function" ? await config.url() : config.url;
-    const headers =
-      typeof config.headers === "function"
-        ? await config.headers(request)
-        : config.headers ?? {};
+    const url = typeof config.url === "function" ? await config.url() : config.url;
+    const headers = typeof config.headers === "function"
+      ? await config.headers(request)
+      : config.headers ?? {};
 
     // TODO: make url configurable
 
     // TODO: headers
     try {
-      const { files, clone: variablesClone } = extractFiles(
+      const {files, clone: variablesClone} = extractFiles(
         {
           ...variables,
         },
-        isExtractableFile
+        isExtractableFile,
       );
 
       let resp: Response;
@@ -61,7 +52,7 @@ export function createFetchQuery(config: Configuration): FetchFunction {
           request,
           variablesClone,
           headers,
-          files
+          files,
         );
       } else {
         resp = await postJson(url, request, variables, headers);
@@ -80,7 +71,7 @@ export function createFetchQuery(config: Configuration): FetchFunction {
         return result;
       } else {
         throw new ServerError(
-          `Unhandled content-type ${contentType} on response`
+          `Unhandled content-type ${contentType} on response`,
         );
       }
     } catch (ex) {
@@ -96,7 +87,7 @@ export function createFetchQuery(config: Configuration): FetchFunction {
             throw new Error(JSON.stringify(await ex.response.json()));
           default:
             throw new ServerError(
-              `Unhandled content-type ${contentType} on response`
+              `Unhandled content-type ${contentType} on response`,
             );
         }
       } else {
@@ -111,7 +102,7 @@ async function postJson(
   url: string,
   request: RequestParameters,
   variables: Variables,
-  headers: Headers
+  headers: Headers,
 ): Promise<Response> {
   return ky.post(url, {
     json: {
@@ -130,7 +121,7 @@ async function postMultipart(
   request: RequestParameters,
   variables: Variables,
   headers: Headers,
-  files: Map<ExtractableFile, string[]>
+  files: Map<ExtractableFile, string[]>,
 ): Promise<Response> {
   const body = new FormData();
   if (request.text) {
@@ -141,11 +132,11 @@ async function postMultipart(
         operationName: request.name,
         variables,
         // extensions
-      })
+      }),
     );
   }
 
-  const map: { [key: number]: string[] } = {};
+  const map: {[key: number]: string[]} = {};
   let i = 0;
   files.forEach((paths) => {
     map[++i] = paths.map((path) => `variables.${path}`);

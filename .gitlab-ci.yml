@@ -1,0 +1,76 @@
+image: node:16
+
+build:
+  only:
+    - merge_requests
+    - main
+    - tags
+  tags:
+    - docker
+  artifacts:
+    paths:
+      - dist
+  cache:
+    key:
+      files:
+        - yarn.lock
+    paths:
+      - node_modules
+  script:
+    - npm ci
+    - npm run fmt:check
+    - npm run typecheck
+    - npm run test
+    - npm run build
+
+publish:gitlab:
+  cache: {}
+  needs:
+    - build
+  only:
+    - tags
+  script:
+    - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" > .npmrc
+    - npm config set @stackworx.io:registry https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/
+    - npm version --no-git-tag-version ${CI_COMMIT_TAG}
+    - npm publish
+
+.release:
+  needs:
+    - build
+  image:
+    name: registry.gitlab.com/go-semantic-release/semantic-release:2.16.4
+    entrypoint: [""]
+  artifacts:
+    paths:
+      - .version
+
+release:
+  extends: .release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      when: manual
+  script:
+    - >
+      semantic-release 
+      --provider gitlab 
+      --token ${TOKEN}
+      --version-file 
+      --allow-initial-development-versions 
+      --allow-no-changes
+    - echo test
+
+release:force:
+  extends: .release
+  when: manual
+  script:
+    - >
+      semantic-release 
+      --provider gitlab 
+      --token ${TOKEN}
+      --version-file 
+      --allow-initial-development-versions 
+      --allow-no-changes 
+      --force-bump-patch-version

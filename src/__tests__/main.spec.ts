@@ -1,13 +1,13 @@
-import { expect, test, beforeAll, beforeEach, afterAll } from "vitest";
-import { setupServer } from "msw/node";
-import { graphql } from "msw";
+import {graphql} from "msw";
+import {setupServer} from "msw/node";
+import {afterAll, beforeAll, beforeEach, expect, test} from "vitest";
 
-import { createFetchQuery } from "../main";
-import { fail } from "assert";
+import {fail} from "assert";
+import {createFetchQuery} from "../main";
 
 const graphqlHandlers = [
   graphql.query("MyQuery", (_req, res, ctx) => {
-    return res(ctx.data({ name: "Name" }));
+    return res(ctx.data({name: "Name"}));
   }),
 
   graphql.query("NetworkError", (_req, res, _ctx) => {
@@ -40,7 +40,7 @@ afterAll(() => server.close());
 beforeEach(() => server.resetHandlers());
 
 test("query", async () => {
-  const fetchQuery = createFetchQuery({ url: `http://localhost/graphql` });
+  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
 
   const result = await fetchQuery(
     {
@@ -52,7 +52,7 @@ test("query", async () => {
     },
     {},
     {},
-    null
+    null,
   );
   expect(result).toMatchObject({
     data: {},
@@ -60,7 +60,7 @@ test("query", async () => {
 });
 
 test("network error", async () => {
-  const fetchQuery = createFetchQuery({ url: `http://localhost/graphql` });
+  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
 
   try {
     await fetchQuery(
@@ -73,7 +73,7 @@ test("network error", async () => {
       },
       {},
       {},
-      null
+      null,
     );
     fail("exception not thrown");
   } catch (ex) {
@@ -86,7 +86,7 @@ test("network error", async () => {
 });
 
 test("network error", async () => {
-  const fetchQuery = createFetchQuery({ url: `http://localhost/graphql` });
+  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
 
   try {
     await fetchQuery(
@@ -99,7 +99,7 @@ test("network error", async () => {
       },
       {},
       {},
-      null
+      null,
     );
     fail("exception not thrown");
   } catch (ex) {
