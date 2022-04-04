@@ -3,13 +3,15 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   build: {
+    sourcemap: true,
     lib: {
-      entry: path.resolve(__dirname, "lib/main.js"),
+      entry: path.resolve(__dirname, "src/main.ts"),
       name: "relay-network",
-      fileName: (format) => `relay-network".${format}.js`,
+      fileName: (format) => `relay-network.${format}.js`,
+      formats: ["es"],
     },
     rollupOptions: {
-      external: ["ky"],
+      external: ["ky", "extract-files/extractFiles.mjs"],
     },
   },
   test: {

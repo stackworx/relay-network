@@ -7,3 +7,4 @@ A Relay Network using [ky](https://github.com/sindresorhus/ky)
 
 - https://spec.graphql.org/June2018/
 - https://github.com/graphql/graphql-over-http
+- https://github.com/jaydenseric/graphql-multipart-request-spec (Unofficial)

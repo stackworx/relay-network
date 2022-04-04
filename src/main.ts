@@ -7,34 +7,65 @@ import {
   Variables,
 } from "relay-runtime";
 import ky, { HTTPError } from "ky";
+// @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
+import extractFiles, { ExtractableFile } from "extract-files/extractFiles.mjs";
+// @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
+import isExtractableFile from "extract-files/isExtractableFile.mjs";
+
+type Headers = Record<string, string | undefined>;
 
 interface Configuration {
-  url: string;
+  url: string | (() => Promise<string>);
+  headers?: Headers | ((request: RequestParameters) => Promise<Headers>);
 }
 
 export class ServerError extends Error {}
 
-export function createFetchQuery({ url }: Configuration): FetchFunction {
+// TODO: config
+// retries
+
+export function createFetchQuery(config: Configuration): FetchFunction {
   return async function fetchQuery(
     request: RequestParameters,
     variables: Variables,
     _cacheConfig: CacheConfig,
     _uploadables?: UploadableMap | null
   ): Promise<GraphQLResponse> {
+    if (!request.text) {
+      throw new Error("Persisted Queries are not supported");
+    }
+
+    const url =
+      typeof config.url === "function" ? await config.url() : config.url;
+    const headers =
+      typeof config.headers === "function"
+        ? await config.headers(request)
+        : config.headers ?? {};
+
     // TODO: make url configurable
 
+    // TODO: headers
     try {
-      // TODO: handle form multi-part
-      const resp = await ky.post(url, {
-        json: {
-          query: request.text,
-          operationName: request.name,
-          variables,
+      const { files, clone: variablesClone } = extractFiles(
+        {
+          ...variables,
         },
-        headers: {
-          // Add authentication and other headers here
-        },
-      });
+        isExtractableFile
+      );
+
+      let resp: Response;
+
+      if (files.size > 0) {
+        resp = await postMultipart(
+          url,
+          request,
+          variablesClone,
+          headers,
+          files
+        );
+      } else {
+        resp = await postJson(url, request, variables, headers);
+      }
 
       const contentType = resp.headers.get("content-type");
 
@@ -74,4 +105,62 @@ export function createFetchQuery({ url }: Configuration): FetchFunction {
       }
     }
   };
+}
+
+async function postJson(
+  url: string,
+  request: RequestParameters,
+  variables: Variables,
+  headers: Headers
+): Promise<Response> {
+  return ky.post(url, {
+    json: {
+      query: request.text,
+      operationName: request.name,
+      variables,
+      // extensions
+    },
+    method: "POST",
+    headers,
+  });
+}
+
+async function postMultipart(
+  url: string,
+  request: RequestParameters,
+  variables: Variables,
+  headers: Headers,
+  files: Map<ExtractableFile, string[]>
+): Promise<Response> {
+  const body = new FormData();
+  if (request.text) {
+    body.append(
+      "operations",
+      JSON.stringify({
+        query: request.text,
+        operationName: request.name,
+        variables,
+        // extensions
+      })
+    );
+  }
+
+  const map: { [key: number]: string[] } = {};
+  let i = 0;
+  files.forEach((paths) => {
+    map[++i] = paths.map((path) => `variables.${path}`);
+  });
+
+  body.append("map", JSON.stringify(map));
+
+  i = 0;
+  files.forEach((_, file) => {
+    body.append(`${++i}`, file, file.name);
+  });
+
+  return ky.post(url, {
+    body,
+    method: "POST",
+    headers,
+  });
 }
