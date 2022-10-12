@@ -44,7 +44,8 @@ test("query", async () => {
 
   const result = await fetchQuery(
     {
-      id: "1",
+      id: null,
+      cacheID: "",
       name: "myquery",
       operationKind: "query",
       text: "query MyQuery { name }",
@@ -65,7 +66,8 @@ test("network error", async () => {
   try {
     await fetchQuery(
       {
-        id: "1",
+        id: null,
+        cacheID: "",
         name: "myquery",
         operationKind: "query",
         text: "query NetworkError { name }",
@@ -91,7 +93,8 @@ test("network error", async () => {
   try {
     await fetchQuery(
       {
-        id: "1",
+        id: null,
+        cacheID: "",
         name: "myquery",
         operationKind: "query",
         text: "query QueryWithBadContentType { name }",

@@ -1,9 +1,18 @@
 import ky, {HTTPError} from "ky";
-import {CacheConfig, FetchFunction, GraphQLResponse, RequestParameters, UploadableMap, Variables} from "relay-runtime";
+import {
+  CacheConfig,
+  FetchFunction,
+  GraphQLResponse,
+  RequestParameters,
+  Subscribable,
+  UploadableMap,
+  Variables,
+} from "relay-runtime";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
+import {Sink} from "relay-runtime/lib/network/RelayObservable";
 
 type Headers = Record<string, string | undefined>;
 
@@ -18,98 +27,142 @@ export class ServerError extends Error {}
 // retries
 
 export function createFetchQuery(config: Configuration): FetchFunction {
-  return async function fetchQuery(
+  return function fetchQuery(
     request: RequestParameters,
     variables: Variables,
-    _cacheConfig: CacheConfig,
-    _uploadables?: UploadableMap | null,
-  ): Promise<GraphQLResponse> {
-    if (!request.text) {
-      throw new Error("Persisted Queries are not supported");
-    }
-
-    const url = typeof config.url === "function" ? await config.url() : config.url;
-    const headers = typeof config.headers === "function"
-      ? await config.headers(request)
-      : config.headers ?? {};
-
-    // TODO: make url configurable
-
-    // TODO: headers
-    try {
-      const {files, clone: variablesClone} = extractFiles(
-        {
-          ...variables,
-        },
-        isExtractableFile,
-      );
-
-      let resp: Response;
-
-      if (files.size > 0) {
-        resp = await postMultipart(
-          url,
+    cacheConfig: CacheConfig,
+    uploadables?: UploadableMap | null,
+  ): Subscribable<GraphQLResponse> {
+    return {
+      subscribe: (sink: Sink<GraphQLResponse>) => {
+        const controller = new AbortController();
+        const {signal} = controller;
+        const res = doFetch(
+          config,
+          signal,
           request,
-          variablesClone,
-          headers,
-          files,
+          variables,
+          cacheConfig,
+          uploadables,
         );
-      } else {
-        resp = await postJson(url, request, variables, headers);
-      }
 
-      const contentType = resp.headers.get("content-type");
+        res
+          .then((value) => {
+            sink.next(value);
+            sink.complete();
+          })
+          .catch((error) => {
+            if (error && error.name && error.name === "AbortError") {
+              sink.complete();
+            } else {
+              sink.error(error);
+            }
+          });
 
-      if (contentType == null) {
-        throw new ServerError(`Missing content-type on response`);
-      } else if (contentType.startsWith("application/json")) {
-        // TODO: handle failure
-        // TODO: inspect header type
-        const result: GraphQLResponse = await resp.json();
+        return {
+          unsubscribe() {
+            controller.abort();
+          },
+          // TODO: is this needed?
+          closed: false,
+        };
+      },
+    };
+  };
+}
 
-        // TODO: validate response
-        return result;
-      } else {
-        throw new ServerError(
-          `Unhandled content-type ${contentType} on response`,
-        );
-      }
-    } catch (ex) {
-      if (ex instanceof HTTPError) {
-        const contentType = ex.response.headers.get("content-type");
+async function doFetch(
+  config: Configuration,
+  signal: AbortSignal,
+  request: RequestParameters,
+  variables: Variables,
+  _cacheConfig: CacheConfig,
+  _uploadables?: UploadableMap | null,
+): Promise<GraphQLResponse> {
+  if (!request.text) {
+    throw new Error("Persisted Queries are not supported");
+  }
 
-        switch (contentType) {
-          case null:
-            throw new ServerError(`Missing content-type on response`);
-          case "text/plain":
-            throw new ServerError(await ex.response.text());
-          case "application/json":
-            throw new Error(JSON.stringify(await ex.response.json()));
-          default:
-            throw new ServerError(
-              `Unhandled content-type ${contentType} on response`,
-            );
-        }
-      } else {
-        // TODO
-        throw ex;
+  const url = typeof config.url === "function" ? await config.url() : config.url;
+  const headers = typeof config.headers === "function"
+    ? await config.headers(request)
+    : config.headers ?? {};
+
+  try {
+    const {files, clone: variablesClone} = extractFiles(
+      {
+        ...variables,
+      },
+      isExtractableFile,
+    );
+
+    let resp: Response;
+
+    if (files.size > 0) {
+      resp = await postMultipart(
+        url,
+        signal,
+        request,
+        variablesClone,
+        headers,
+        files,
+      );
+    } else {
+      resp = await postJson(url, signal, request, variables, headers);
+    }
+
+    const contentType = resp.headers.get("content-type");
+
+    if (contentType == null) {
+      throw new ServerError(`Missing content-type on response`);
+    } else if (contentType.startsWith("application/json")) {
+      // TODO: handle failure
+      // TODO: inspect header type
+      const result: GraphQLResponse = await resp.json();
+
+      // TODO: validate response
+      return result;
+    } else {
+      throw new ServerError(
+        `Unhandled content-type ${contentType} on response`,
+      );
+    }
+  } catch (ex) {
+    if (ex instanceof HTTPError) {
+      const contentType = ex.response.headers.get("content-type");
+
+      switch (contentType) {
+        case null:
+          throw new ServerError(`Missing content-type on response`);
+        case "text/plain":
+          throw new ServerError(await ex.response.text());
+        case "application/json":
+          throw new Error(JSON.stringify(await ex.response.json()));
+        default:
+          throw new ServerError(
+            `Unhandled content-type ${contentType} on response`,
+          );
       }
     }
-  };
+
+    throw ex;
+  }
 }
 
 async function postJson(
   url: string,
+  signal: AbortSignal,
   request: RequestParameters,
   variables: Variables,
   headers: Headers,
 ): Promise<Response> {
   return ky.post(url, {
+    signal,
     json: {
       query: request.text,
       operationName: request.name,
       variables,
-      // extensions
+      extensions: undefined, // TODO
     },
     method: "POST",
     headers,
@@ -118,6 +171,7 @@ async function postJson(
 
 async function postMultipart(
   url: string,
+  signal: AbortSignal,
   request: RequestParameters,
   variables: Variables,
   headers: Headers,
@@ -131,7 +185,7 @@ async function postMultipart(
         query: request.text,
         operationName: request.name,
         variables,
-        // extensions
+        extensions: undefined, // TODO
       }),
     );
   }
@@ -150,6 +204,7 @@ async function postMultipart(
   });
 
   return ky.post(url, {
+    signal,
     body,
     method: "POST",
     headers,
