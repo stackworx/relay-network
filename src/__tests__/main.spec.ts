@@ -1,5 +1,6 @@
 import {graphql} from "msw";
 import {setupServer} from "msw/node";
+import {Network} from "relay-runtime";
 import {afterAll, beforeAll, beforeEach, expect, test} from "vitest";
 
 import {fail} from "assert";
@@ -41,20 +42,23 @@ beforeEach(() => server.resetHandlers());
 
 test("query", async () => {
   const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
+  const network = Network.create(fetchQuery);
 
-  const result = await fetchQuery(
-    {
-      id: null,
-      cacheID: "",
-      name: "myquery",
-      operationKind: "query",
-      text: "query MyQuery { name }",
-      metadata: {},
-    },
-    {},
-    {},
-    null,
-  );
+  const result = await network
+    .execute(
+      {
+        id: null,
+        cacheID: "",
+        name: "myquery",
+        operationKind: "query",
+        text: "query MyQuery { name }",
+        metadata: {},
+      },
+      {},
+      {},
+      null,
+    )
+    .toPromise();
   expect(result).toMatchObject({
     data: {},
   });
@@ -62,21 +66,24 @@ test("query", async () => {
 
 test("network error", async () => {
   const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
+  const network = Network.create(fetchQuery);
 
   try {
-    await fetchQuery(
-      {
-        id: null,
-        cacheID: "",
-        name: "myquery",
-        operationKind: "query",
-        text: "query NetworkError { name }",
-        metadata: {},
-      },
-      {},
-      {},
-      null,
-    );
+    await network
+      .execute(
+        {
+          id: null,
+          cacheID: "",
+          name: "myquery",
+          operationKind: "query",
+          text: "query NetworkError { name }",
+          metadata: {},
+        },
+        {},
+        {},
+        null,
+      )
+      .toPromise();
     fail("exception not thrown");
   } catch (ex) {
     if (ex instanceof Error) {
@@ -89,21 +96,24 @@ test("network error", async () => {
 
 test("network error", async () => {
   const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
+  const network = Network.create(fetchQuery);
 
   try {
-    await fetchQuery(
-      {
-        id: null,
-        cacheID: "",
-        name: "myquery",
-        operationKind: "query",
-        text: "query QueryWithBadContentType { name }",
-        metadata: {},
-      },
-      {},
-      {},
-      null,
-    );
+    await network
+      .execute(
+        {
+          id: null,
+          cacheID: "",
+          name: "myquery",
+          operationKind: "query",
+          text: "query QueryWithBadContentType { name }",
+          metadata: {},
+        },
+        {},
+        {},
+        null,
+      )
+      .toPromise();
     fail("exception not thrown");
   } catch (ex) {
     if (ex instanceof Error) {
