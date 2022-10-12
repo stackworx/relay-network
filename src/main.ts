@@ -116,7 +116,7 @@ async function doFetch(
         beforeError: [
           async (error) => {
             const {response} = error;
-            if (response.status === 401) {
+            if (response.status === 403) {
               await config.handleLogout();
             }
 

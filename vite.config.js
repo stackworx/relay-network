@@ -3,6 +3,8 @@ import {defineConfig} from "vite";
 
 export default defineConfig({
   build: {
+    // Leave minification up to bunlder
+    minify: false,
     sourcemap: true,
     lib: {
       entry: path.resolve(__dirname, "src/main.ts"),
