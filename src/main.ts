@@ -1,4 +1,4 @@
-import ky, {HTTPError} from "ky";
+import ky, {HTTPError, Options} from "ky";
 import {
   CacheConfig,
   FetchFunction,
@@ -19,12 +19,11 @@ type Headers = Record<string, string | undefined>;
 interface Configuration {
   url: string | (() => Promise<string>);
   headers?: Headers | ((request: RequestParameters) => Promise<Headers>);
+  timeout?: Options["timeout"];
+  retry?: Options["retry"];
 }
 
 export class ServerError extends Error {}
-
-// TODO: config
-// retries
 
 export function createFetchQuery(config: Configuration): FetchFunction {
   return function fetchQuery(
@@ -71,6 +70,13 @@ export function createFetchQuery(config: Configuration): FetchFunction {
   };
 }
 
+const defaultRetry: Options["retry"] = {
+  limit: 2,
+  methods: ["get"],
+  // TODO: add more?
+  statusCodes: [503],
+};
+
 async function doFetch(
   config: Configuration,
   signal: AbortSignal,
@@ -98,17 +104,18 @@ async function doFetch(
 
     let resp: Response;
 
+    const options: Options = {
+      timeout: config.timeout,
+      retry: config.retry ?? defaultRetry,
+      headers,
+      signal,
+      method: request.operationKind == "query" ? "get" : "post",
+    };
+
     if (files.size > 0) {
-      resp = await postMultipart(
-        url,
-        signal,
-        request,
-        variablesClone,
-        headers,
-        files,
-      );
+      resp = await postMultipart(url, options, request, variablesClone, files);
     } else {
-      resp = await postJson(url, signal, request, variables, headers);
+      resp = await postJson(url, options, request, variables);
     }
 
     const contentType = resp.headers.get("content-type");
@@ -152,30 +159,26 @@ async function doFetch(
 
 async function postJson(
   url: string,
-  signal: AbortSignal,
+  options: Options,
   request: RequestParameters,
   variables: Variables,
-  headers: Headers,
 ): Promise<Response> {
   return ky.post(url, {
-    signal,
+    ...options,
     json: {
       query: request.text,
       operationName: request.name,
       variables,
       extensions: undefined, // TODO
     },
-    method: "POST",
-    headers,
   });
 }
 
 async function postMultipart(
   url: string,
-  signal: AbortSignal,
+  options: Options,
   request: RequestParameters,
   variables: Variables,
-  headers: Headers,
   files: Map<ExtractableFile, string[]>,
 ): Promise<Response> {
   const body = new FormData();
@@ -205,9 +208,7 @@ async function postMultipart(
   });
 
   return ky.post(url, {
-    signal,
+    ...options,
     body,
-    method: "POST",
-    headers,
   });
 }

@@ -41,8 +41,9 @@ afterAll(() => server.close());
 beforeEach(() => server.resetHandlers());
 
 test("query", async () => {
-  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
-  const network = Network.create(fetchQuery);
+  const network = Network.create(
+    createFetchQuery({url: `http://localhost/graphql`}),
+  );
 
   const result = await network
     .execute(
@@ -65,8 +66,9 @@ test("query", async () => {
 });
 
 test("network error", async () => {
-  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
-  const network = Network.create(fetchQuery);
+  const network = Network.create(
+    createFetchQuery({url: `http://localhost/graphql`}),
+  );
 
   try {
     await network
@@ -95,8 +97,9 @@ test("network error", async () => {
 });
 
 test("network error", async () => {
-  const fetchQuery = createFetchQuery({url: `http://localhost/graphql`});
-  const network = Network.create(fetchQuery);
+  const network = Network.create(
+    createFetchQuery({url: `http://localhost/graphql`}),
+  );
 
   try {
     await network
