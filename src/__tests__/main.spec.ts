@@ -42,7 +42,18 @@ beforeEach(() => server.resetHandlers());
 
 test("query", async () => {
   const network = Network.create(
-    createFetchQuery({url: `http://localhost/graphql`}),
+    createFetchQuery({
+      url: `http://localhost/graphql`,
+      timeout: 5000,
+      retry: {
+        statusCodes: [503],
+        methods: ["get"],
+        limit: 2,
+      },
+      async handleLogout() {
+        // ...
+      },
+    }),
   );
 
   const result = await network

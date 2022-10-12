@@ -21,6 +21,8 @@ interface Configuration {
   headers?: Headers | ((request: RequestParameters) => Promise<Headers>);
   timeout?: Options["timeout"];
   retry?: Options["retry"];
+  // Handle 403
+  handleLogout(): Promise<void>;
 }
 
 export class ServerError extends Error {}
@@ -110,6 +112,18 @@ async function doFetch(
       headers,
       signal,
       method: request.operationKind == "query" ? "get" : "post",
+      hooks: {
+        beforeError: [
+          async (error) => {
+            const {response} = error;
+            if (response.status === 401) {
+              await config.handleLogout();
+            }
+
+            return error;
+          },
+        ],
+      },
     };
 
     if (files.size > 0) {
