@@ -143,7 +143,7 @@ test("network error", async () => {
   }
 });
 
-test.only("user expired", async () => {
+test("user expired", async () => {
   const handleLogoutMock = vi.fn();
   const network = Network.create(
     createFetchQuery({
