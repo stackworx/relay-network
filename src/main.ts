@@ -1,4 +1,4 @@
-import ky, {HTTPError} from "ky";
+import ky, { HTTPError } from "ky";
 import {
   CacheConfig,
   FetchFunction,
@@ -9,10 +9,10 @@ import {
   Variables,
 } from "relay-runtime";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
-import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
+import extractFiles, { ExtractableFile } from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
-import {Sink} from "relay-runtime/lib/network/RelayObservable";
+import { Sink } from "relay-runtime/lib/network/RelayObservable";
 
 type Headers = Record<string, string | undefined>;
 
@@ -31,19 +31,19 @@ export function createFetchQuery(config: Configuration): FetchFunction {
     request: RequestParameters,
     variables: Variables,
     cacheConfig: CacheConfig,
-    uploadables?: UploadableMap | null,
+    uploadables?: UploadableMap | null
   ): Subscribable<GraphQLResponse> {
     return {
       subscribe: (sink: Sink<GraphQLResponse>) => {
         const controller = new AbortController();
-        const {signal} = controller;
+        const { signal } = controller;
         const res = doFetch(
           config,
           signal,
           request,
           variables,
           cacheConfig,
-          uploadables,
+          uploadables
         );
 
         res
@@ -77,23 +77,25 @@ async function doFetch(
   request: RequestParameters,
   variables: Variables,
   _cacheConfig: CacheConfig,
-  _uploadables?: UploadableMap | null,
+  _uploadables?: UploadableMap | null
 ): Promise<GraphQLResponse> {
   if (!request.text) {
     throw new Error("Persisted Queries are not supported");
   }
 
-  const url = typeof config.url === "function" ? await config.url() : config.url;
-  const headers = typeof config.headers === "function"
-    ? await config.headers(request)
-    : config.headers ?? {};
+  const url =
+    typeof config.url === "function" ? await config.url() : config.url;
+  const headers =
+    typeof config.headers === "function"
+      ? await config.headers(request)
+      : config.headers ?? {};
 
   try {
-    const {files, clone: variablesClone} = extractFiles(
+    const { files, clone: variablesClone } = extractFiles(
       {
         ...variables,
       },
-      isExtractableFile,
+      isExtractableFile
     );
 
     let resp: Response;
@@ -105,7 +107,7 @@ async function doFetch(
         request,
         variablesClone,
         headers,
-        files,
+        files
       );
     } else {
       resp = await postJson(url, signal, request, variables, headers);
@@ -115,16 +117,17 @@ async function doFetch(
 
     if (contentType == null) {
       throw new ServerError(`Missing content-type on response`);
-    } else if (contentType.startsWith("application/json")) {
-      // TODO: handle failure
-      // TODO: inspect header type
+    } else if (
+      contentType.startsWith("application/json") ||
+      contentType.startsWith("application/graphql-response+json")
+    ) {
       const result: GraphQLResponse = await resp.json();
 
       // TODO: validate response
       return result;
     } else {
       throw new ServerError(
-        `Unhandled content-type ${contentType} on response`,
+        `Unhandled content-type ${contentType} on response`
       );
     }
   } catch (ex) {
@@ -140,7 +143,7 @@ async function doFetch(
           throw new Error(JSON.stringify(await ex.response.json()));
         default:
           throw new ServerError(
-            `Unhandled content-type ${contentType} on response`,
+            `Unhandled content-type ${contentType} on response`
           );
       }
     }
@@ -154,7 +157,7 @@ async function postJson(
   signal: AbortSignal,
   request: RequestParameters,
   variables: Variables,
-  headers: Headers,
+  headers: Headers
 ): Promise<Response> {
   return ky.post(url, {
     signal,
@@ -175,7 +178,7 @@ async function postMultipart(
   request: RequestParameters,
   variables: Variables,
   headers: Headers,
-  files: Map<ExtractableFile, string[]>,
+  files: Map<ExtractableFile, string[]>
 ): Promise<Response> {
   const body = new FormData();
   if (request.text) {
@@ -186,11 +189,11 @@ async function postMultipart(
         operationName: request.name,
         variables,
         extensions: undefined, // TODO
-      }),
+      })
     );
   }
 
-  const map: {[key: number]: string[]} = {};
+  const map: { [key: number]: string[] } = {};
   let i = 0;
   files.forEach((paths) => {
     map[++i] = paths.map((path) => `variables.${path}`);
