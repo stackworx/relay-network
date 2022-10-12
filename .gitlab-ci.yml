@@ -47,11 +47,7 @@ publish:gitlab:
 
 release:
   extends: .release
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: always
-    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
-      when: manual
+  when: manual
   script:
     - >
       semantic-release 
