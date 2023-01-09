@@ -64,8 +64,9 @@ export function createFetchQuery(config: Configuration): FetchFunction {
           unsubscribe() {
             controller.abort();
           },
-          // TODO: is this needed?
-          closed: false,
+          get closed() {
+            return sink.closed;
+          },
         };
       },
     };
