@@ -76,7 +76,6 @@ export function createFetchQuery(config: Configuration): FetchFunction {
 const defaultRetry: Options["retry"] = {
   limit: 2,
   methods: ["get"],
-  // TODO: add more?
   statusCodes: [503],
 };
 
@@ -144,6 +143,7 @@ async function doFetch(
       const result: GraphQLResponse = await resp.json();
 
       // TODO: validate response
+      // https://spec.graphql.org/June2018/#sec-Errors
       return result;
     } else {
       throw new ServerError(
@@ -184,7 +184,8 @@ async function postJson(
       query: request.text,
       operationName: request.name,
       variables,
-      extensions: undefined, // TODO
+      // (Optional): This entry is reserved for implementors to extend the protocol however they see fit.
+      extensions: undefined,
     },
   });
 }
@@ -204,7 +205,8 @@ async function postMultipart(
         query: request.text,
         operationName: request.name,
         variables,
-        extensions: undefined, // TODO
+        // (Optional): This entry is reserved for implementors to extend the protocol however they see fit.
+        extensions: undefined,
       }),
     );
   }

@@ -24,7 +24,7 @@ const graphqlHandlers = [
   }),
 
   graphql.query("QueryWithBadContentType", (_req, res, ctx) => {
-    // TODO: this does not work
+    // TODO: this does not work, content-type is always overriden to application/json
     // return res(
     //   ctx.data({ name: "Name" }),
     //   ctx.set("Content-Type", "text/plain")
