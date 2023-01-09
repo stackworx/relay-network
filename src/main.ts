@@ -21,8 +21,14 @@ interface Configuration {
   headers?: Headers | ((request: RequestParameters) => Promise<Headers>);
   timeout?: Options["timeout"];
   retry?: Options["retry"];
+  // Check if we should log the user out
+  logoutCheck?(response: Response): boolean;
   // Handle 403
-  handleLogout(): Promise<void>;
+  handleLogout?(): Promise<void>;
+}
+
+function defaultLogoutCheck(response: Response) {
+  return response.status === 403;
 }
 
 export class ServerError extends Error {}
@@ -113,16 +119,20 @@ async function doFetch(
       signal,
       method: request.operationKind == "query" ? "get" : "post",
       hooks: {
-        beforeError: [
-          async (error) => {
-            const {response} = error;
-            if (response.status === 403) {
-              await config.handleLogout();
-            }
+        beforeError: config.handleLogout
+          ? [
+            async (error) => {
+              const {response} = error;
+              if (config.logoutCheck ? config.logoutCheck(response) : defaultLogoutCheck(response)) {
+                if (config.handleLogout) {
+                  await config.handleLogout();
+                }
+              }
 
-            return error;
-          },
-        ],
+              return error;
+            },
+          ]
+          : undefined,
       },
     };
 

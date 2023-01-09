@@ -33,11 +33,16 @@ const network = Network.create(
             methods: ["get"],
             limit: 2,
         },
-
-        // React to user credentials expired. E.g. clear store
+        // Check if we should log the user out
+        // Optional
+        logoutCheck?(response: Response): {
+            // default behaviour
+            return response.status === 403;
+        },
+        // React to user credentials expired. E.g. clear store, delete tokens
+        // Optional
         async handleLogout() {
-        // ...
+            // ...
         },
     }));
-
 ```
