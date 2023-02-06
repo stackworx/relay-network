@@ -10,7 +10,7 @@ export default defineConfig({
       entry: path.resolve(__dirname, "src/main.ts"),
       name: "relay-network",
       fileName: (format) => `relay-network.${format}.js`,
-      formats: ["es"],
+      formats: ["es", "cjs"],
     },
     rollupOptions: {
       external: ["ky", "extract-files/extractFiles.mjs"],

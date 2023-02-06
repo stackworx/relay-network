@@ -3,6 +3,7 @@ import {
   CacheConfig,
   FetchFunction,
   GraphQLResponse,
+  GraphQLResponseWithoutData,
   RequestParameters,
   Subscribable,
   UploadableMap,
@@ -23,8 +24,12 @@ interface Configuration {
   retry?: Options["retry"];
   // Check if we should log the user out
   logoutCheck?(response: Response): boolean;
-  // Handle 403
-  handleLogout?(): Promise<void>;
+  // Handle 401
+  handleLogout?(): Promise<void> | void;
+  // Hotchocolate will return an empty object when mutations fail
+  // This breaks the useMutation error handling because
+  // The error will arrive as the second argument to the onCompleted method instead of the onError
+  deleteDataIfError?: boolean;
 }
 
 function defaultLogoutCheck(response: Response) {
@@ -39,6 +44,7 @@ export function createFetchQuery(config: Configuration): FetchFunction {
     variables: Variables,
     cacheConfig: CacheConfig,
     uploadables?: UploadableMap | null,
+    deleteDataIfError = true,
   ): Subscribable<GraphQLResponse> {
     return {
       subscribe: (sink: Sink<GraphQLResponse>) => {
@@ -55,6 +61,12 @@ export function createFetchQuery(config: Configuration): FetchFunction {
 
         res
           .then((value) => {
+            if (deleteDataIfError) {
+              if ("data" in value && "errors" in value) {
+                value as GraphQLResponseWithoutData;
+                delete value.data;
+              }
+            }
             sink.next(value);
             sink.complete();
           })
@@ -112,9 +124,11 @@ async function doFetch(
 
     let resp: Response;
 
+    const retry = request.operationKind !== "mutation" ? config.retry ?? defaultRetry : undefined;
+
     const options: Options = {
       timeout: config.timeout,
-      retry: config.retry ?? defaultRetry,
+      retry,
       headers,
       signal,
       method: request.operationKind == "query" ? "get" : "post",

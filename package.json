@@ -1,16 +1,18 @@
 {
-  "name": "relay-network",
+  "name": "@stackworx.io/relay-network",
+  "license": "UNLICENCSED",
   "private": true,
   "version": "0.0.0",
   "files": [
     "dist"
   ],
+  "types": "./dist/main.d.ts",
   "exports": {
     ".": "./dist/relay-network.es.js"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build && tsc --project ./tsconfig.build.json",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "coverage": "vitest run --coverage",
