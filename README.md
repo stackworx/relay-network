@@ -46,3 +46,7 @@ const network = Network.create(
         },
     }));
 ```
+
+## MSW 
+
+https://github.com/mswjs/msw/issues/1388#issuecomment-1344382071

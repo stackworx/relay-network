@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --project ./tsconfig.build.json",
-    "test": "vitest",
+    "test": "NODE_OPTIONS='--no-experimental-fetch' vitest",
     "typecheck": "tsc --noEmit",
     "coverage": "vitest run --coverage",
     "fmt": "dprint fmt",
