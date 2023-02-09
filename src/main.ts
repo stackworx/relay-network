@@ -4,7 +4,6 @@ import {
   FetchFunction,
   GraphQLResponse,
   GraphQLResponseWithData,
-  GraphQLResponseWithoutData,
   RequestParameters,
   Subscribable,
   UploadableMap,
