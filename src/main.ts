@@ -3,6 +3,7 @@ import {
   CacheConfig,
   FetchFunction,
   GraphQLResponse,
+  GraphQLResponseWithData,
   GraphQLResponseWithoutData,
   RequestParameters,
   Subscribable,
@@ -62,8 +63,8 @@ export function createFetchQuery(config: Configuration): FetchFunction {
         res
           .then((value) => {
             if (deleteDataIfError) {
-              if ("data" in value && "errors" in value) {
-                value as GraphQLResponseWithoutData;
+              if ((value as GraphQLResponseWithData).data && (value as GraphQLResponseWithData).errors) {
+                // @ts-expect-error delete
                 delete value.data;
               }
             }

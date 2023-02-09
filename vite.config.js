@@ -3,14 +3,14 @@ import {defineConfig} from "vite";
 
 export default defineConfig({
   build: {
-    // Leave minification up to bunlder
+    // Leave minification up to bundler
     minify: false,
     sourcemap: true,
     lib: {
       entry: path.resolve(__dirname, "src/main.ts"),
       name: "relay-network",
       fileName: (format) => `relay-network.${format}.js`,
-      formats: ["es", "cjs"],
+      formats: ["es"],
     },
     rollupOptions: {
       external: ["ky", "extract-files/extractFiles.mjs"],
