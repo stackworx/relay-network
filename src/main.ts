@@ -146,7 +146,7 @@ async function doFetch(
               return error;
             },
           ]
-          : undefined,
+          : [],
       },
     };
 
