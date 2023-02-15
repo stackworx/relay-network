@@ -9,6 +9,7 @@ import {createFetchQuery} from "../main";
 
 const graphqlHandlers = [
   graphql.query("MyQuery", (_req, res, ctx) => {
+    ctx.set("content-type", "application/graphql-response+json");
     return res(ctx.data({name: "Name"}));
   }),
 
@@ -53,6 +54,7 @@ test("query", async () => {
     createFetchQuery({
       url: `http://localhost/graphql`,
       async handleLogout() {},
+      allowApplicationJsonContentType: true,
     }),
   );
 

@@ -30,6 +30,7 @@ interface Configuration {
   // This breaks the useMutation error handling because
   // The error will arrive as the second argument to the onCompleted method instead of the onError
   deleteDataIfError?: boolean;
+  allowApplicationJsonContentType?: boolean;
 }
 
 function defaultLogoutCheck(response: Response) {
@@ -98,7 +99,7 @@ const defaultRetry: Options["retry"] = {
 };
 
 async function doFetch(
-  config: Configuration,
+  {allowApplicationJsonContentType = false, ...config}: Configuration,
   signal: AbortSignal,
   request: RequestParameters,
   variables: Variables,
@@ -161,8 +162,8 @@ async function doFetch(
     if (contentType == null) {
       throw new ServerError(`Missing content-type on response`);
     } else if (
-      contentType.startsWith("application/json")
-      || contentType.startsWith("application/graphql-response+json")
+      contentType.startsWith("application/graphql-response+json")
+      || (contentType.startsWith("application/json") && allowApplicationJsonContentType)
     ) {
       const result: GraphQLResponse = await resp.json();
 
