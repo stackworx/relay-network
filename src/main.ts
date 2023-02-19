@@ -179,17 +179,23 @@ async function doFetch(
     if (ex instanceof HTTPError) {
       const contentType = ex.response.headers.get("content-type");
 
-      switch (contentType) {
-        case null:
-          throw new ServerError(`Missing content-type on response`);
-        case "text/plain":
-          throw new ServerError(await ex.response.text());
-        case "application/json":
-          throw new Error(JSON.stringify(await ex.response.json()));
-        default:
-          throw new ServerError(
-            `Unhandled content-type ${contentType} on response`,
-          );
+      if (contentType == null) {
+        throw new ServerError(`Missing content-type on response`);
+      } else if (contentType === "text/plain") {
+        throw new ServerError(await ex.response.text());
+      } else if (
+        contentType.startsWith("application/graphql-response+json")
+        || (contentType.startsWith("application/json") && allowApplicationJsonContentType)
+      ) {
+        // We got a well formed graphql response
+        if (!allowApplicationJsonContentType) {
+          return await ex.response.json();
+        }
+        throw new Error(JSON.stringify(await ex.response.json()));
+      } else {
+        throw new ServerError(
+          `Unhandled content-type ${contentType} on response`,
+        );
       }
     }
 
