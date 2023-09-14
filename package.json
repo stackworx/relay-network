@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc --project ./tsconfig.build.json",
-    "test": "NODE_OPTIONS='--no-experimental-fetch' vitest",
+    "test": "vitest",
     "typecheck": "tsc --noEmit",
     "coverage": "vitest run --coverage",
     "fmt": "dprint fmt",
@@ -20,25 +20,24 @@
     "lint": "eslint . --ext .ts"
   },
   "devDependencies": {
-    "@types/node": "^16.11.26",
-    "@types/relay-runtime": "14.1.6",
-    "@typescript-eslint/eslint-plugin": "5.51.0",
-    "@typescript-eslint/parser": "5.51.0",
-    "dprint": "0.34.1",
-    "eslint": "8.33.0",
-    "fastify": "4.11.0",
-    "jsdom": "21.0.0",
-    "ky": "0.33.1",
-    "msw": "0.49.2",
-    "node-fetch": "3.3.0",
-    "relay-runtime": "14.1.0",
-    "typescript": "4.9.5",
-    "vite": "4.0.4",
-    "vitest": "0.26.3"
+    "@types/node": "^20.6.0",
+    "@types/relay-runtime": "14.1.13",
+    "@typescript-eslint/eslint-plugin": "6.7.0",
+    "@typescript-eslint/parser": "6.7.0",
+    "dprint": "0.41.0",
+    "eslint": "8.49.0",
+    "fastify": "4.23.1",
+    "jsdom": "22.1.0",
+    "ky": "1.0.1",
+    "msw": "1.3.1",
+    "relay-runtime": "15.0.0",
+    "typescript": "5.2.2",
+    "vite": "4.4.9",
+    "vitest": "0.34.4"
   },
   "peerDependencies": {
-    "ky": ">=0.30.0",
-    "relay-runtime": ">=14.0.0"
+    "ky": ">=1.0.0",
+    "relay-runtime": ">=15.0.0"
   },
   "dependencies": {
     "extract-files": "^13.0.0"
