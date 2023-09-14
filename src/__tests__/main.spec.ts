@@ -14,7 +14,7 @@ const graphqlHandlers = [
   }),
 
   graphql.query("NetworkError", (_req, res, _ctx) => {
-    return res.networkError("failed to fetch");
+    return res.networkError("Failed to fetch");
   }),
 
   graphql.query("UserCredentialsExpired", (_req, res, ctx) => {
@@ -105,7 +105,7 @@ test("network error", async () => {
     fail("exception not thrown");
   } catch (ex) {
     if (ex instanceof Error) {
-      expect(ex.message).toMatch("failed to fetch");
+      expect(ex.message).toMatch("Failed to fetch");
     } else {
       throw ex;
     }
