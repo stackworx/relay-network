@@ -1,4 +1,4 @@
-import ky, {BeforeRequestHook, HTTPError, Options} from "ky";
+import ky, {AfterResponseHook, BeforeRequestHook, HTTPError, Options} from "ky";
 import {
   CacheConfig,
   FetchFunction,
@@ -32,6 +32,7 @@ interface Configuration {
   deleteDataIfError?: boolean;
   allowApplicationJsonContentType?: boolean;
   beforeRequest?: BeforeRequestHook[];
+  afterResponse?: AfterResponseHook[];
 }
 
 function defaultLogoutCheck(response: Response) {
@@ -159,6 +160,7 @@ async function doFetch(
           ]
           : [],
         beforeRequest: config.beforeRequest ?? [],
+        afterResponse: config.afterResponse ?? [],
       },
     };
 
