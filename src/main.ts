@@ -1,4 +1,4 @@
-import ky, { BeforeRequestHook, HTTPError, Options } from "ky";
+import ky, {BeforeRequestHook, HTTPError, Options} from "ky";
 import {
   CacheConfig,
   FetchFunction,
@@ -10,10 +10,10 @@ import {
   Variables,
 } from "relay-runtime";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
-import extractFiles, { ExtractableFile } from "extract-files/extractFiles.mjs";
+import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
-import { Sink } from "relay-runtime/lib/network/RelayObservable";
+import {Sink} from "relay-runtime/lib/network/RelayObservable";
 
 type Headers = Record<string, string | undefined>;
 
@@ -46,27 +46,27 @@ export function createFetchQuery(config: Configuration): FetchFunction {
     variables: Variables,
     cacheConfig: CacheConfig,
     uploadables?: UploadableMap | null,
-    deleteDataIfError = true
+    deleteDataIfError = true,
   ): Subscribable<GraphQLResponse> {
     return {
       subscribe: (sink: Sink<GraphQLResponse>) => {
         const controller = new AbortController();
-        const { signal } = controller;
+        const {signal} = controller;
         const res = doFetch(
           config,
           signal,
           request,
           variables,
           cacheConfig,
-          uploadables
+          uploadables,
         );
 
         res
           .then((value) => {
             if (deleteDataIfError) {
               if (
-                (value as GraphQLResponseWithData).data &&
-                (value as GraphQLResponseWithData).errors
+                (value as GraphQLResponseWithData).data
+                && (value as GraphQLResponseWithData).errors
               ) {
                 // @ts-expect-error delete
                 delete value.data;
@@ -103,38 +103,35 @@ const defaultRetry: Options["retry"] = {
 };
 
 async function doFetch(
-  { allowApplicationJsonContentType = false, ...config }: Configuration,
+  {allowApplicationJsonContentType = false, ...config}: Configuration,
   signal: AbortSignal,
   request: RequestParameters,
   variables: Variables,
   _cacheConfig: CacheConfig,
-  _uploadables?: UploadableMap | null
+  _uploadables?: UploadableMap | null,
 ): Promise<GraphQLResponse> {
   if (!request.text) {
     throw new Error("Persisted Queries are not supported");
   }
 
-  const url =
-    typeof config.url === "function" ? await config.url() : config.url;
-  const headers =
-    typeof config.headers === "function"
-      ? await config.headers(request)
-      : config.headers ?? {};
+  const url = typeof config.url === "function" ? await config.url() : config.url;
+  const headers = typeof config.headers === "function"
+    ? await config.headers(request)
+    : config.headers ?? {};
 
   try {
-    const { files, clone: variablesClone } = extractFiles(
+    const {files, clone: variablesClone} = extractFiles(
       {
         ...variables,
       },
-      isExtractableFile
+      isExtractableFile,
     );
 
     let resp: Response;
 
-    const retry =
-      request.operationKind !== "mutation"
-        ? config.retry ?? defaultRetry
-        : undefined;
+    const retry = request.operationKind !== "mutation"
+      ? config.retry ?? defaultRetry
+      : undefined;
 
     const options: Options = {
       timeout: config.timeout,
@@ -145,21 +142,21 @@ async function doFetch(
       hooks: {
         beforeError: config.handleLogout
           ? [
-              async (error) => {
-                const { response } = error;
-                if (
-                  config.logoutCheck
-                    ? config.logoutCheck(response)
-                    : defaultLogoutCheck(response)
-                ) {
-                  if (config.handleLogout) {
-                    await config.handleLogout();
-                  }
+            async (error) => {
+              const {response} = error;
+              if (
+                config.logoutCheck
+                  ? config.logoutCheck(response)
+                  : defaultLogoutCheck(response)
+              ) {
+                if (config.handleLogout) {
+                  await config.handleLogout();
                 }
+              }
 
-                return error;
-              },
-            ]
+              return error;
+            },
+          ]
           : [],
         beforeRequest: config.beforeRequest,
       },
@@ -176,9 +173,9 @@ async function doFetch(
     if (contentType == null) {
       throw new ServerError(`Missing content-type on response`);
     } else if (
-      contentType.startsWith("application/graphql-response+json") ||
-      (contentType.startsWith("application/json") &&
-        allowApplicationJsonContentType)
+      contentType.startsWith("application/graphql-response+json")
+      || (contentType.startsWith("application/json")
+        && allowApplicationJsonContentType)
     ) {
       const result: GraphQLResponse = await resp.json();
 
@@ -187,7 +184,7 @@ async function doFetch(
       return result;
     } else {
       throw new ServerError(
-        `Unhandled content-type ${contentType} on response`
+        `Unhandled content-type ${contentType} on response`,
       );
     }
   } catch (ex) {
@@ -199,9 +196,9 @@ async function doFetch(
       } else if (contentType === "text/plain") {
         throw new ServerError(await ex.response.text());
       } else if (
-        contentType.startsWith("application/graphql-response+json") ||
-        (contentType.startsWith("application/json") &&
-          allowApplicationJsonContentType)
+        contentType.startsWith("application/graphql-response+json")
+        || (contentType.startsWith("application/json")
+          && allowApplicationJsonContentType)
       ) {
         // We got a well formed graphql response
         if (!allowApplicationJsonContentType) {
@@ -210,7 +207,7 @@ async function doFetch(
         throw new Error(JSON.stringify(await ex.response.json()));
       } else {
         throw new ServerError(
-          `Unhandled content-type ${contentType} on response`
+          `Unhandled content-type ${contentType} on response`,
         );
       }
     }
@@ -223,7 +220,7 @@ async function postJson(
   url: string,
   options: Options,
   request: RequestParameters,
-  variables: Variables
+  variables: Variables,
 ): Promise<Response> {
   return ky.post(url, {
     ...options,
@@ -242,7 +239,7 @@ async function postMultipart(
   options: Options,
   request: RequestParameters,
   variables: Variables,
-  files: Map<ExtractableFile, string[]>
+  files: Map<ExtractableFile, string[]>,
 ): Promise<Response> {
   const body = new FormData();
   if (request.text) {
@@ -254,11 +251,11 @@ async function postMultipart(
         variables,
         // (Optional): This entry is reserved for implementors to extend the protocol however they see fit.
         extensions: undefined,
-      })
+      }),
     );
   }
 
-  const map: { [key: number]: string[] } = {};
+  const map: {[key: number]: string[]} = {};
   let i = 0;
   files.forEach((paths) => {
     map[++i] = paths.map((path) => `variables.${path}`);
