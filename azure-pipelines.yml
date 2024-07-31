@@ -30,20 +30,26 @@ stages:
                 npm run test
                 npm run build
 
-  - stage: Publish
-    jobs:
-      - job: Publish
-        steps:
-          - task: DownloadPipelineArtifact@2
-            inputs:
-              targetPath: dist
-          - task: NodeTool@0
-            displayName: Install Node
-            inputs:
-              versionSource: 'spec'
-              versionSpec: '20.x'
-          - task: Npm@1
-            inputs:
-              command: publish
-              publishRegistry: useFeed
-              publishFeed: '$(System.TeamProjectId)/React'
+  -  ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}
+    - stage: Publish
+      jobs:
+        - job: Publish
+          steps:
+            - task: DownloadPipelineArtifact@2
+              inputs:
+                targetPath: dist
+            - task: NodeTool@0
+              displayName: Install Node
+              inputs:
+                versionSource: 'spec'
+                versionSpec: '20.x'
+            - task: Npm@1:
+              inputs:
+                command: custom
+                
+            - task: Npm@1
+              inputs:
+                command: publish
+                customCommand: version --no-git-tag-version variables['Build.SourceBranchName']
+                publishRegistry: useFeed
+                publishFeed: '$(System.TeamProjectId)/React'
