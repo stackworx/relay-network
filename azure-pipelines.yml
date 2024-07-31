@@ -46,10 +46,10 @@ stages:
             - task: Npm@1
               inputs:
                 command: custom
+                customCommand: version --no-git-tag-version $(Build.SourceBranchName)
                 
             - task: Npm@1
               inputs:
                 command: publish
-                customCommand: version --no-git-tag-version $(Build.SourceBranchName)
                 publishRegistry: useFeed
                 publishFeed: '$(System.TeamProjectId)/React'
