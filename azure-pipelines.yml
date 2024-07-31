@@ -35,7 +35,8 @@ stages:
       - job: Publish
         steps:
           - task: DownloadPipelineArtifact@2
-            inputs: {}
+            inputs:
+              targetPath: dist
           - task: NodeTool@0
             displayName: Install Node
             inputs:
@@ -45,4 +46,4 @@ stages:
             inputs:
               command: publish
               publishRegistry: useFeed
-              publishFeed: React 
+              publishFeed: '$(System.TeamProjectId)/React'
