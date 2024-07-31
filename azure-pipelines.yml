@@ -1,0 +1,33 @@
+trigger:
+  - main
+    
+pr:
+  - main
+
+pool:
+  name: 'Stackworx'
+
+resources:
+  repositories:
+    - repository: templates
+      name: BuildTemplates/templates
+      type: git
+
+# variables:
+#   - group: ci
+  
+stages:
+  - stage: Build
+    dependsOn:
+      - Format
+    jobs:
+      - job: Build
+        steps:
+          - template: node-library.yml@templates
+            parameters:
+              nodeVersion: '20.x'
+              script: |
+                npm run fmt:check
+                npm run typecheck
+                npm run test
+                npm run build
