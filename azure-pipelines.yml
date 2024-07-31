@@ -36,7 +36,11 @@ stages:
         steps:
           - task: DownloadPipelineArtifact@2
             inputs: {}
-      
+          - task: NodeTool@0
+            displayName: Install Node
+            inputs:
+              versionSource: 'spec'
+              versionSpec: '20.x'
           - task: Npm@1
             inputs:
               command: publish
