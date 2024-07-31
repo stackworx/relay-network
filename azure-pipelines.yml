@@ -30,7 +30,7 @@ stages:
                 npm run test
                 npm run build
 
-  - ${{ if startsWith($(Build.SourceBranch), 'refs/tags/') }}:
+  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}:
     - stage: Publish
       jobs:
         - job: Publish
