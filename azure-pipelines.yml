@@ -30,7 +30,7 @@ stages:
                 npm run test
                 npm run build
 
-  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}:
+  - ${{ if startsWith(Build.SourceBranch, 'refs/tags/') }}:
     - stage: Publish
       jobs:
         - job: Publish
@@ -50,6 +50,6 @@ stages:
             - task: Npm@1
               inputs:
                 command: publish
-                customCommand: version --no-git-tag-version variables['Build.SourceBranchName']
+                customCommand: version --no-git-tag-version $(Build.SourceBranchName)
                 publishRegistry: useFeed
                 publishFeed: '$(System.TeamProjectId)/React'
