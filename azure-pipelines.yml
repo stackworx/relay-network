@@ -29,3 +29,16 @@ stages:
                 npm run typecheck
                 npm run test
                 npm run build
+
+  - stage: Publish
+    jobs:
+      - job: Publish
+        steps:
+          - task: DownloadPipelineArtifact@2
+            inputs: {}
+      
+          - task: Npm@1
+            inputs:
+              command: publish
+              publishRegistry: useFeed
+              publishFeed: React 
