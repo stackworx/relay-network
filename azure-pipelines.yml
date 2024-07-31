@@ -19,37 +19,18 @@ resources:
 stages:
   - stage: Build
     jobs:
-      - job: Build
-        steps:
-          - template: node-library.yml@templates
-            parameters:
-              nodeVersion: '20.x'
-              script: |
-                npm run fmt:check
-                npm run typecheck
-                npm run test
-                npm run build
+      - template: node-library.build.yml@templates
+        parameters:
+          nodeVersion: '20.x'
+          script: |
+            npm run fmt:check
+            npm run typecheck
+            npm run test
+            npm run build
 
   - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}:
     - stage: Publish
       jobs:
-        - job: Publish
-          steps:
-            - task: DownloadPipelineArtifact@2
-              inputs:
-                targetPath: dist
-            - task: NodeTool@0
-              displayName: Install Node
-              inputs:
-                versionSource: 'spec'
-                versionSpec: '20.x'
-            - task: Npm@1
-              inputs:
-                command: custom
-                customCommand: version --no-git-tag-version $(Build.SourceBranchName)
-                
-            - task: Npm@1
-              inputs:
-                command: publish
-                publishRegistry: useFeed
-                publishFeed: '$(System.TeamProjectId)/React'
+        - template: node-library.publish.yml@templates
+          parameters:
+            nodeVersion: '20.x'
