@@ -13,7 +13,7 @@ build:
   cache:
     key:
       files:
-        - yarn.lock
+        - package-lock.json
     paths:
       - node_modules
   script:
