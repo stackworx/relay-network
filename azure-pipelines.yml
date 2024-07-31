@@ -43,7 +43,7 @@ stages:
               inputs:
                 versionSource: 'spec'
                 versionSpec: '20.x'
-            - task: Npm@1:
+            - task: Npm@1
               inputs:
                 command: custom
                 
