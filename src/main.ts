@@ -259,6 +259,9 @@ async function postMultipart(
     );
   }
 
+  // graphql preflight header
+  options.headers["graphql-preflight"] = 1;
+
   const map: {[key: number]: string[]} = {};
   let i = 0;
   files.forEach((paths) => {
