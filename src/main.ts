@@ -117,9 +117,6 @@ async function doFetch(
   }
 
   const url = typeof config.url === "function" ? await config.url() : config.url;
-  const headers = typeof config.headers === "function"
-    ? await config.headers(request)
-    : config.headers ?? {};
 
   try {
     const {files, clone: variablesClone} = extractFiles(
@@ -128,6 +125,14 @@ async function doFetch(
       },
       isExtractableFile,
     );
+    const multipart = files.size > 0;
+
+    const headers = typeof config.headers === "function"
+      ? await config.headers(request)
+      : config.headers ?? multipart
+      // Enable preflight header
+      ? {"graphql-preflight": "1"}
+      : {};
 
     let resp: Response;
 
@@ -166,7 +171,7 @@ async function doFetch(
       },
     };
 
-    if (files.size > 0) {
+    if (multipart) {
       resp = await postMultipart(url, options, request, variablesClone, files);
     } else {
       resp = await postJson(url, options, request, variables);
@@ -258,9 +263,6 @@ async function postMultipart(
       }),
     );
   }
-
-  // graphql preflight header
-  options.headers["graphql-preflight"] = 1;
 
   const map: {[key: number]: string[]} = {};
   let i = 0;
