@@ -45,4 +45,4 @@ stages:
         - template: node-library.publish.yml@templates
           parameters:
             nodeVersion: '20.x'
-            version: ${{ parameters.publish }}
+            version: ${{ parameters.publishVersion }}
