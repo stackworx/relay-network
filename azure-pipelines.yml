@@ -1,3 +1,17 @@
+parameters:
+  - name: publish
+    displayName: Publish
+    type: boolean
+    default: false
+  - name: publishVersion
+    displayName: Publish Version
+    type: string
+    default: minor
+    values:
+      - major
+      - minor
+      - patch
+
 trigger:
   - main
     
@@ -12,9 +26,6 @@ resources:
     - repository: templates
       name: BuildTemplates/templates
       type: git
-
-# variables:
-#   - group: ci
   
 stages:
   - stage: Build
@@ -28,10 +39,10 @@ stages:
             npm run test
             npm run build
 
-  - ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/') }}:
+  - ${{ if eq(parameters.publish, 'true') }}:
     - stage: Publish
       jobs:
         - template: node-library.publish.yml@templates
           parameters:
             nodeVersion: '20.x'
-            prelrease: 'beta'
+            version: ${{ parameters.publish }}
