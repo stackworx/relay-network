@@ -40,7 +40,11 @@ function defaultLogoutCheck(response: Response) {
   return response.status === 403;
 }
 
-export class ServerError extends Error {}
+export class ServerError extends Error {
+  constructor(public status?: number, message?: string, public response?: string) {
+    super(message);
+  }
+}
 
 export function createFetchQuery(config: Configuration): FetchFunction {
   return function fetchQuery(
@@ -180,7 +184,11 @@ async function doFetch(
     const contentType = resp.headers.get("content-type");
 
     if (contentType == null) {
-      throw new ServerError(`Missing content-type on response`);
+      const text = await resp.text();
+      if (!resp.ok) {
+        throw new ServerError(resp.status, resp.statusText, text);
+      }
+      throw new ServerError(resp.status, `Missing content-type on response`, text);
     } else if (
       contentType.startsWith("application/graphql-response+json")
       || (contentType.startsWith("application/json")
@@ -193,6 +201,7 @@ async function doFetch(
       return result;
     } else {
       throw new ServerError(
+        resp.status,
         `Unhandled content-type ${contentType} on response`,
       );
     }
@@ -201,9 +210,9 @@ async function doFetch(
       const contentType = ex.response.headers.get("content-type");
 
       if (contentType == null) {
-        throw new ServerError(`Missing content-type on response`);
+        throw new ServerError(undefined, `Missing content-type on response`);
       } else if (contentType === "text/plain") {
-        throw new ServerError(await ex.response.text());
+        throw new ServerError(undefined, await ex.response.text());
       } else if (
         contentType.startsWith("application/graphql-response+json")
         || (contentType.startsWith("application/json")
@@ -216,6 +225,7 @@ async function doFetch(
         throw new Error(JSON.stringify(await ex.response.json()));
       } else {
         throw new ServerError(
+          undefined,
           `Unhandled content-type ${contentType} on response`,
         );
       }
