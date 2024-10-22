@@ -210,6 +210,10 @@ async function doFetch(
       const contentType = ex.response.headers.get("content-type");
 
       if (contentType == null) {
+        const text = await ex.response.text();
+        if (!ex.response.ok) {
+          throw new ServerError(ex.response.status, ex.response.statusText, text);
+        }
         throw new ServerError(undefined, `Missing content-type on response`);
       } else if (contentType === "text/plain") {
         throw new ServerError(undefined, await ex.response.text());
