@@ -1,7 +1,7 @@
 {
   "name": "@stackworx.io/relay-network",
   "license": "UNLICENCSED",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "files": [
     "dist"
   ],
