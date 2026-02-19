@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-empty-function */
 import {graphql, HttpResponse} from "msw";
 import {setupServer} from "msw/node";
 import {Network} from "relay-runtime";

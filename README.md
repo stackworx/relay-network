@@ -13,6 +13,39 @@ A Relay Network using [ky](https://github.com/sindresorhus/ky)
 
 - https://github.com/graphql/graphql-over-http/blob/main/rfcs/IncrementalDelivery.md
 
+#### Why we normalize incremental payloads
+
+Some GraphQL servers send incremental delivery payloads in the RFC-style shape:
+
+```json
+{
+    "incremental": [
+        {
+            "data": {"exportName": "Kolomela 63.5%, 8mm Fine Ore"},
+            "label": "test",
+            "path": ["products", 1]
+        }
+    ],
+    "hasNext": false
+}
+```
+
+Relay Runtime (17.x) treats a payload as an incremental *patch* only if it has
+top-level `label` and `path`. If you forward the RFC-style payload as-is, Relay
+can warn that there was "No data returned" (because there is no top-level
+`data`).
+
+This library normalizes the RFC-style payload into Relay-compatible patch
+payloads before calling `sink.next(...)`:
+
+```json
+{
+    "data": {"exportName": "Kolomela 63.5%, 8mm Fine Ore"},
+    "label": "test",
+    "path": ["products", 1]
+}
+```
+
 # Usage
 
 ```bash

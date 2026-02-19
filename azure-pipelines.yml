@@ -37,6 +37,7 @@ stages:
             set -e
             npm run fmt:check
             npm run typecheck
+            npm run lint
             npm run test -- --run
             npm run build
 
