@@ -34,9 +34,10 @@ stages:
         parameters:
           nodeVersion: '24.x'
           script: |
+            set -e
             npm run fmt:check
             npm run typecheck
-            npm run test
+            npm run test -- --run
             npm run build
 
   - ${{ if eq(parameters.publish, 'true') }}:
