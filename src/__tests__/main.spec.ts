@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
-import {graphql} from "msw";
+import {graphql, HttpResponse} from "msw";
 import {setupServer} from "msw/node";
 import {Network} from "relay-runtime";
 import {afterAll, beforeAll, beforeEach, expect, test, vi} from "vitest";
@@ -8,29 +8,37 @@ import {fail} from "assert";
 import {createFetchQuery} from "../main";
 
 const graphqlHandlers = [
-  graphql.query("MyQuery", (_req, res, ctx) => {
-    ctx.set("content-type", "application/graphql-response+json");
-    return res(ctx.data({name: "Name"}));
-  }),
-
-  graphql.query("NetworkError", (_req, res, _ctx) => {
-    return res.networkError("Failed to fetch");
-  }),
-
-  graphql.query("UserCredentialsExpired", (_req, res, ctx) => {
-    return res(
-      ctx.status(403),
-      ctx.set("Content-Type", "text/plain"),
+  graphql.query("MyQuery", () => {
+    return HttpResponse.json(
+      {data: {name: "Name"}},
+      {
+        headers: {
+          "Content-Type": "application/graphql-response+json",
+        },
+      },
     );
   }),
 
-  graphql.query("QueryWithBadContentType", (_req, res, ctx) => {
-    // TODO: this does not work, content-type is always overriden to application/json
-    // return res(
-    //   ctx.data({ name: "Name" }),
-    //   ctx.set("Content-Type", "text/plain")
-    // );
-    return res(ctx.set("Content-Type", "text/plain"));
+  graphql.query("NetworkError", () => {
+    return HttpResponse.error();
+  }),
+
+  graphql.query("UserCredentialsExpired", () => {
+    return new HttpResponse(null, {
+      status: 403,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }),
+
+  graphql.query("QueryWithBadContentType", () => {
+    return new HttpResponse(null, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
   }),
 ];
 
@@ -74,7 +82,7 @@ test("query", async () => {
     )
     .toPromise();
   expect(result).toMatchObject({
-    data: {},
+    data: {name: "Name"},
   });
 });
 
@@ -105,7 +113,7 @@ test("network error", async () => {
     fail("exception not thrown");
   } catch (ex) {
     if (ex instanceof Error) {
-      expect(ex.message).toMatch("Failed to fetch");
+      expect(ex.message).toMatch(/Failed to fetch|fetch failed/i);
     } else {
       throw ex;
     }
