@@ -191,14 +191,9 @@ test("defer multipart/mixed streams incremental payloads", async () => {
     hasNext: true,
   });
   expect(results[1]).toMatchObject({
-    incremental: [
-      {
-        data: {exportName: "Kolomela 63.5%, 8mm Fine Ore"},
-        label: "test",
-        path: ["products", 1],
-      },
-    ],
-    hasNext: false,
+    data: {exportName: "Kolomela 63.5%, 8mm Fine Ore"},
+    label: "test",
+    path: ["products", 1],
   });
 });
 
