@@ -32,7 +32,7 @@ stages:
     jobs:
       - template: node-library.build.yml@templates
         parameters:
-          nodeVersion: '20.x'
+          nodeVersion: '24.x'
           script: |
             npm run fmt:check
             npm run typecheck
