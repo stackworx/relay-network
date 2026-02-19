@@ -20,25 +20,33 @@ const graphqlHandlers = [
   }),
 
   graphql.query("NetworkError", () => {
-    return HttpResponse.error();
+    // MSW uses "Response.error()" semantics to simulate a network error.
+    // It doesn't carry MSW's strict body typing, so we intentionally cast.
+    return HttpResponse.error() as any;
   }),
 
   graphql.query("UserCredentialsExpired", () => {
-    return new HttpResponse(null, {
-      status: 403,
-      headers: {
-        "Content-Type": "text/plain",
+    return HttpResponse.json(
+      {data: null},
+      {
+        status: 403,
+        headers: {
+          "Content-Type": "text/plain",
+        },
       },
-    });
+    );
   }),
 
   graphql.query("QueryWithBadContentType", () => {
-    return new HttpResponse(null, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain",
+    return HttpResponse.json(
+      {data: {name: "Name"}},
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain",
+        },
       },
-    });
+    );
   }),
 ];
 
