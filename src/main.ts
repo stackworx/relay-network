@@ -15,6 +15,8 @@ import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
 import {Sink} from "relay-runtime/lib/network/RelayObservable";
 
+import {emitRelayCompatiblePayload, extractBoundary, streamMultipartMixed} from "./defer";
+
 type Headers = Record<string, string | undefined>;
 
 interface Configuration {
@@ -58,29 +60,29 @@ export function createFetchQuery(config: Configuration): FetchFunction {
       subscribe: (sink: Sink<GraphQLResponse>) => {
         const controller = new AbortController();
         const {signal} = controller;
-        const res = doFetch(
+        const emit = (value: GraphQLResponse) => {
+          if (deleteDataIfError) {
+            if (
+              (value as GraphQLResponseWithData).data
+              && (value as GraphQLResponseWithData).errors
+            ) {
+              // @ts-expect-error delete
+              delete value.data;
+            }
+          }
+          sink.next(value);
+        };
+
+        doFetch(
           config,
           signal,
           request,
           variables,
           cacheConfig,
           uploadables,
-        );
-
-        res
-          .then((value) => {
-            if (deleteDataIfError) {
-              if (
-                (value as GraphQLResponseWithData).data
-                && (value as GraphQLResponseWithData).errors
-              ) {
-                // @ts-expect-error delete
-                delete value.data;
-              }
-            }
-            sink.next(value);
-            sink.complete();
-          })
+          emit,
+        )
+          .then(() => sink.complete())
           .catch((error) => {
             if (error && error.name && error.name === "AbortError") {
               sink.complete();
@@ -115,7 +117,8 @@ async function doFetch(
   variables: Variables,
   _cacheConfig: CacheConfig,
   _uploadables?: UploadableMap | null,
-): Promise<GraphQLResponse> {
+  onPayload?: (payload: GraphQLResponse) => void,
+): Promise<void> {
   if (!request.text) {
     throw new Error("Persisted Queries are not supported");
   }
@@ -189,6 +192,22 @@ async function doFetch(
         throw new ServerError(resp.status, resp.statusText, text);
       }
       throw new ServerError(resp.status, `Missing content-type on response`, text);
+    } else if (contentType.startsWith("multipart/mixed")) {
+      const boundary = extractBoundary(contentType);
+      if (!boundary) {
+        const text = await resp.text();
+        throw new ServerError(
+          resp.status,
+          "Missing boundary on multipart/mixed response",
+          text,
+        );
+      }
+
+      const emit = onPayload
+        ? (payload: GraphQLResponse) => emitRelayCompatiblePayload(payload, onPayload)
+        : () => {};
+      await streamMultipartMixed(resp, boundary, emit);
+      return;
     } else if (
       contentType.startsWith("application/graphql-response+json")
       || (contentType.startsWith("application/json")
@@ -198,7 +217,12 @@ async function doFetch(
 
       // TODO: validate response
       // https://spec.graphql.org/June2018/#sec-Errors
-      return result;
+      if (onPayload) {
+        emitRelayCompatiblePayload(result, onPayload);
+        return;
+      }
+
+      return;
     } else {
       throw new ServerError(
         resp.status,
@@ -215,6 +239,9 @@ async function doFetch(
           throw new ServerError(ex.response.status, ex.response.statusText, text);
         }
         throw new ServerError(undefined, `Missing content-type on response`);
+      } else if (contentType.startsWith("multipart/mixed")) {
+        const text = await ex.response.text();
+        throw new ServerError(ex.response.status, ex.response.statusText, text);
       } else if (contentType === "text/plain") {
         throw new ServerError(undefined, await ex.response.text());
       } else if (
@@ -223,10 +250,15 @@ async function doFetch(
           && allowApplicationJsonContentType)
       ) {
         // We got a well formed graphql response
+        const payload: GraphQLResponse = await ex.response.json();
         if (!allowApplicationJsonContentType) {
-          return await ex.response.json();
+          if (onPayload) {
+            emitRelayCompatiblePayload(payload, onPayload);
+            return;
+          }
+          throw new Error(JSON.stringify(payload));
         }
-        throw new Error(JSON.stringify(await ex.response.json()));
+        throw new Error(JSON.stringify(payload));
       } else {
         throw new ServerError(
           undefined,
