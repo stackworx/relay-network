@@ -58,29 +58,29 @@ export function createFetchQuery(config: Configuration): FetchFunction {
       subscribe: (sink: Sink<GraphQLResponse>) => {
         const controller = new AbortController();
         const {signal} = controller;
-        const res = doFetch(
+        const emit = (value: GraphQLResponse) => {
+          if (deleteDataIfError) {
+            if (
+              (value as GraphQLResponseWithData).data
+              && (value as GraphQLResponseWithData).errors
+            ) {
+              // @ts-expect-error delete
+              delete value.data;
+            }
+          }
+          sink.next(value);
+        };
+
+        doFetch(
           config,
           signal,
           request,
           variables,
           cacheConfig,
           uploadables,
-        );
-
-        res
-          .then((value) => {
-            if (deleteDataIfError) {
-              if (
-                (value as GraphQLResponseWithData).data
-                && (value as GraphQLResponseWithData).errors
-              ) {
-                // @ts-expect-error delete
-                delete value.data;
-              }
-            }
-            sink.next(value);
-            sink.complete();
-          })
+          emit,
+        )
+          .then(() => sink.complete())
           .catch((error) => {
             if (error && error.name && error.name === "AbortError") {
               sink.complete();
@@ -108,6 +108,192 @@ const defaultRetry: Options["retry"] = {
   statusCodes: [503],
 };
 
+function extractBoundary(contentType: string): string | null {
+  const match = /boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType);
+  return (match?.[1] ?? match?.[2] ?? null)?.trim() ?? null;
+}
+
+function boundaryLineIsFinal(boundaryLine: string, boundary: string): boolean {
+  const marker = `--${boundary}`;
+  const line = boundaryLine.trim();
+  if (!line.startsWith(marker)) {
+    return false;
+  }
+
+  // Final boundary is "--{boundary}--" (some servers may send extra dashes)
+  const after = line.slice(marker.length);
+  return after.startsWith("--");
+}
+
+function findNextBoundaryLineStart(
+  buffer: string,
+  boundary: string,
+  fromIndex: number,
+): number {
+  const marker = `--${boundary}`;
+  let idx = buffer.indexOf(marker, fromIndex);
+  while (idx !== -1) {
+    if (idx === 0 || buffer[idx - 1] === "\n") {
+      return idx;
+    }
+    idx = buffer.indexOf(marker, idx + marker.length);
+  }
+  return -1;
+}
+
+function parseMultipartHeaders(headerText: string): Headers {
+  const headers: Headers = {};
+  for (const line of headerText.split(/\r?\n/)) {
+    const idx = line.indexOf(":");
+    if (idx === -1) {
+      continue;
+    }
+    const key = line.slice(0, idx).trim().toLowerCase();
+    const value = line.slice(idx + 1).trim();
+    headers[key] = value;
+  }
+  return headers;
+}
+
+async function streamMultipartMixed(
+  response: Response,
+  boundary: string,
+  onPayload: (payload: GraphQLResponse) => void,
+): Promise<void> {
+  if (!response.body) {
+    const text = await response.text();
+    throw new ServerError(response.status, "Missing response body", text);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  let buffer = "";
+  let done = false;
+  type State = "SEARCH_BOUNDARY" | "READ_HEADERS" | "READ_BODY";
+  let state: State = "SEARCH_BOUNDARY";
+  let partHeaders: Headers = {};
+
+  const parseAvailable = (final: boolean) => {
+    while (true) {
+      if (state === "SEARCH_BOUNDARY") {
+        const start = findNextBoundaryLineStart(buffer, boundary, 0);
+        if (start === -1) {
+          // Keep a small tail in case boundary spans chunks
+          if (buffer.length > 4096) {
+            buffer = buffer.slice(-4096);
+          }
+          return;
+        }
+
+        if (start > 0) {
+          // Drop preamble bytes before the boundary
+          buffer = buffer.slice(start);
+        }
+
+        const boundaryLineEnd = buffer.indexOf("\n");
+        if (boundaryLineEnd === -1) {
+          return;
+        }
+
+        const boundaryLine = buffer.slice(0, boundaryLineEnd);
+        buffer = buffer.slice(boundaryLineEnd + 1);
+        if (buffer.startsWith("\r")) {
+          buffer = buffer.slice(1);
+        }
+
+        if (boundaryLineIsFinal(boundaryLine, boundary)) {
+          buffer = "";
+          done = true;
+          return;
+        }
+
+        partHeaders = {};
+        state = "READ_HEADERS";
+        continue;
+      }
+
+      if (state === "READ_HEADERS") {
+        const headerSepCRLF = buffer.indexOf("\r\n\r\n");
+        const headerSepLF = buffer.indexOf("\n\n");
+        const headerSep = headerSepCRLF === -1
+          ? headerSepLF
+          : headerSepLF === -1
+          ? headerSepCRLF
+          : Math.min(headerSepCRLF, headerSepLF);
+
+        if (headerSep === -1) {
+          return;
+        }
+
+        const headerEndLen = headerSep === headerSepCRLF ? 4 : 2;
+        const headerText = buffer.slice(0, headerSep);
+        partHeaders = parseMultipartHeaders(headerText);
+        buffer = buffer.slice(headerSep + headerEndLen);
+        state = "READ_BODY";
+        continue;
+      }
+
+      // READ_BODY
+      const nextBoundary = findNextBoundaryLineStart(buffer, boundary, 0);
+      if (nextBoundary === -1) {
+        if (!final) {
+          return;
+        }
+
+        const bodyText = buffer.trim();
+        buffer = "";
+        state = "SEARCH_BOUNDARY";
+        if (bodyText.length === 0) {
+          return;
+        }
+
+        if (
+          partHeaders["content-type"]?.startsWith("application/json")
+          || partHeaders["content-type"]?.startsWith(
+            "application/graphql-response+json",
+          )
+          || partHeaders["content-type"] == null
+        ) {
+          onPayload(JSON.parse(bodyText));
+        }
+        return;
+      }
+
+      const partBody = buffer.slice(0, nextBoundary).trim();
+      buffer = buffer.slice(nextBoundary);
+      state = "SEARCH_BOUNDARY";
+
+      if (partBody.length === 0) {
+        continue;
+      }
+
+      if (
+        partHeaders["content-type"]?.startsWith("application/json")
+        || partHeaders["content-type"]?.startsWith(
+          "application/graphql-response+json",
+        )
+        || partHeaders["content-type"] == null
+      ) {
+        onPayload(JSON.parse(partBody));
+      }
+    }
+  };
+
+  while (!done) {
+    const {value, done: readerDone} = await reader.read();
+    if (value) {
+      buffer += decoder.decode(value, {stream: true});
+      parseAvailable(false);
+    }
+    if (readerDone) {
+      buffer += decoder.decode();
+      parseAvailable(true);
+      break;
+    }
+  }
+}
+
 async function doFetch(
   {allowApplicationJsonContentType = false, ...config}: Configuration,
   signal: AbortSignal,
@@ -115,7 +301,8 @@ async function doFetch(
   variables: Variables,
   _cacheConfig: CacheConfig,
   _uploadables?: UploadableMap | null,
-): Promise<GraphQLResponse> {
+  onPayload?: (payload: GraphQLResponse) => void,
+): Promise<void> {
   if (!request.text) {
     throw new Error("Persisted Queries are not supported");
   }
@@ -189,6 +376,20 @@ async function doFetch(
         throw new ServerError(resp.status, resp.statusText, text);
       }
       throw new ServerError(resp.status, `Missing content-type on response`, text);
+    } else if (contentType.startsWith("multipart/mixed")) {
+      const boundary = extractBoundary(contentType);
+      if (!boundary) {
+        const text = await resp.text();
+        throw new ServerError(
+          resp.status,
+          "Missing boundary on multipart/mixed response",
+          text,
+        );
+      }
+
+      const emit = onPayload ?? (() => {});
+      await streamMultipartMixed(resp, boundary, emit);
+      return;
     } else if (
       contentType.startsWith("application/graphql-response+json")
       || (contentType.startsWith("application/json")
@@ -198,7 +399,12 @@ async function doFetch(
 
       // TODO: validate response
       // https://spec.graphql.org/June2018/#sec-Errors
-      return result;
+      if (onPayload) {
+        onPayload(result);
+        return;
+      }
+
+      return;
     } else {
       throw new ServerError(
         resp.status,
@@ -215,6 +421,9 @@ async function doFetch(
           throw new ServerError(ex.response.status, ex.response.statusText, text);
         }
         throw new ServerError(undefined, `Missing content-type on response`);
+      } else if (contentType.startsWith("multipart/mixed")) {
+        const text = await ex.response.text();
+        throw new ServerError(ex.response.status, ex.response.statusText, text);
       } else if (contentType === "text/plain") {
         throw new ServerError(undefined, await ex.response.text());
       } else if (
@@ -223,10 +432,15 @@ async function doFetch(
           && allowApplicationJsonContentType)
       ) {
         // We got a well formed graphql response
+        const payload: GraphQLResponse = await ex.response.json();
         if (!allowApplicationJsonContentType) {
-          return await ex.response.json();
+          if (onPayload) {
+            onPayload(payload);
+            return;
+          }
+          throw new Error(JSON.stringify(payload));
         }
-        throw new Error(JSON.stringify(await ex.response.json()));
+        throw new Error(JSON.stringify(payload));
       } else {
         throw new ServerError(
           undefined,

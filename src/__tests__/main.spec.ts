@@ -19,6 +19,62 @@ const graphqlHandlers = [
     );
   }),
 
+  graphql.query(
+    "DeferQuery",
+    (() => {
+      const boundary = "-";
+      const part1 = {
+        data: {
+          products: [{id: "UHJvZHVjdAppNw=="}, {id: "UHJvZHVjdAppMjE="}],
+        },
+        hasNext: true,
+      };
+
+      const part2 = {
+        incremental: [
+          {
+            data: {exportName: "Kolomela 63.5%, 8mm Fine Ore"},
+            label: "test",
+            path: ["products", 1],
+          },
+        ],
+        hasNext: false,
+      };
+
+      const multipartBody = [
+        `--${boundary}\r\n`
+        + "Content-Type: application/json; charset=utf-8\r\n\r\n"
+        + `${JSON.stringify(part1)}\r\n`,
+        `--${boundary}\r\n`
+        + "Content-Type: application/json; charset=utf-8\r\n\r\n"
+        + `${JSON.stringify(part2)}\r\n`,
+        `--${boundary}--\r\n`,
+      ].join("");
+
+      const encoder = new TextEncoder();
+      const chunks = [
+        multipartBody.slice(0, 25),
+        multipartBody.slice(25, 80),
+        multipartBody.slice(80),
+      ];
+
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of chunks) {
+            controller.enqueue(encoder.encode(chunk));
+          }
+          controller.close();
+        },
+      });
+
+      return new HttpResponse(stream as any, {
+        headers: {
+          "Content-Type": `multipart/mixed; boundary="${boundary}"`,
+        },
+      }) as any;
+    }) as any,
+  ),
+
   graphql.query("NetworkError", () => {
     // MSW uses "Response.error()" semantics to simulate a network error.
     // It doesn't carry MSW's strict body typing, so we intentionally cast.
@@ -91,6 +147,58 @@ test("query", async () => {
     .toPromise();
   expect(result).toMatchObject({
     data: {name: "Name"},
+  });
+});
+
+test("defer multipart/mixed streams incremental payloads", async () => {
+  const network = Network.create(
+    createFetchQuery({
+      url: `http://localhost/graphql`,
+      async handleLogout() {},
+      allowApplicationJsonContentType: true,
+    }),
+  );
+
+  const results: any[] = [];
+
+  await new Promise<void>((resolve, reject) => {
+    network
+      .execute(
+        {
+          id: null,
+          cacheID: "",
+          name: "myquery",
+          operationKind: "query",
+          text: "query DeferQuery { products { id } }",
+          metadata: {},
+        },
+        {},
+        {},
+        null,
+      )
+      .subscribe({
+        next: (value) => results.push(value),
+        error: reject,
+        complete: resolve,
+      });
+  });
+
+  expect(results).toHaveLength(2);
+  expect(results[0]).toMatchObject({
+    data: {
+      products: [{id: "UHJvZHVjdAppNw=="}, {id: "UHJvZHVjdAppMjE="}],
+    },
+    hasNext: true,
+  });
+  expect(results[1]).toMatchObject({
+    incremental: [
+      {
+        data: {exportName: "Kolomela 63.5%, 8mm Fine Ore"},
+        label: "test",
+        path: ["products", 1],
+      },
+    ],
+    hasNext: false,
   });
 });
 

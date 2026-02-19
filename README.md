@@ -9,6 +9,10 @@ A Relay Network using [ky](https://github.com/sindresorhus/ky)
 - https://graphql.github.io/graphql-over-http/draft/
 - https://github.com/jaydenseric/graphql-multipart-request-spec (Unofficial)
 
+### Defer
+
+- https://github.com/graphql/graphql-over-http/blob/main/rfcs/IncrementalDelivery.md
+
 # Usage
 
 ```bash
