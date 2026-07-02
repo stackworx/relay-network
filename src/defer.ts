@@ -1,4 +1,4 @@
-import {GraphQLResponse} from "relay-runtime";
+import type {GraphQLResponse} from "relay-runtime";
 
 type Headers = Record<string, string | undefined>;
 

@@ -1,7 +1,31 @@
 {
   "name": "@stackworx.io/relay-network",
-  "license": "UNLICENCSED",
   "version": "1.0.1",
+  "description": "A Relay Network layer built on ky, with support for file uploads (GraphQL multipart request) and incremental delivery (@defer/@stream).",
+  "license": "MIT",
+  "author": "Stackworx <ciaran@stackworx.io> (https://stackworx.io)",
+  "homepage": "https://github.com/stackworx/relay-network#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stackworx/relay-network.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stackworx/relay-network/issues"
+  },
+  "keywords": [
+    "relay",
+    "relay-runtime",
+    "graphql",
+    "network",
+    "ky",
+    "fetch",
+    "defer",
+    "stream",
+    "incremental-delivery",
+    "graphql-multipart-request",
+    "file-upload"
+  ],
+  "type": "module",
   "types": "./dist/main.d.mts",
   "files": [
     "dist"
@@ -10,6 +34,13 @@
     ".": "./dist/main.mjs",
     "./package.json": "./package.json"
   },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "test": "vitest",
@@ -17,7 +48,8 @@
     "coverage": "vitest run --coverage",
     "fmt": "dprint fmt",
     "fmt:check": "dprint check",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

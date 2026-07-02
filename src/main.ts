@@ -1,5 +1,6 @@
-import ky, {AfterResponseHook, BeforeErrorHook, BeforeRequestHook, HTTPError, Options} from "ky";
-import {
+import ky, {HTTPError} from "ky";
+import type {AfterResponseHook, BeforeErrorHook, BeforeRequestHook, Options} from "ky";
+import type {
   CacheConfig,
   FetchFunction,
   GraphQLResponse,
@@ -10,10 +11,10 @@ import {
   Variables,
 } from "relay-runtime";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
-import extractFiles, {ExtractableFile} from "extract-files/extractFiles.mjs";
+import extractFiles, {type ExtractableFile} from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
-import {Sink} from "relay-runtime/lib/network/RelayObservable";
+import type {Sink} from "relay-runtime/lib/network/RelayObservable";
 
 import {emitRelayCompatiblePayload, extractBoundary, streamMultipartMixed} from "./defer";
 
@@ -213,7 +214,7 @@ async function doFetch(
       || (contentType.startsWith("application/json")
         && allowApplicationJsonContentType)
     ) {
-      const result: GraphQLResponse = await resp.json();
+      const result = await resp.json() as GraphQLResponse;
 
       // TODO: validate response
       // https://spec.graphql.org/June2018/#sec-Errors
