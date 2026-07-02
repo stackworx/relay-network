@@ -1,5 +1,5 @@
-import ky, {HTTPError} from "ky";
-import type {AfterResponseHook, BeforeErrorHook, BeforeRequestHook, Options} from "ky";
+import ky, {isHTTPError} from "ky";
+import type {BeforeErrorHook, Hooks, Options} from "ky";
 import type {
   CacheConfig,
   FetchFunction,
@@ -14,29 +14,45 @@ import type {
 import extractFiles, {type ExtractableFile} from "extract-files/extractFiles.mjs";
 // @ts-expect-error https://github.com/jaydenseric/extract-files/issues/28
 import isExtractableFile from "extract-files/isExtractableFile.mjs";
-import type {Sink} from "relay-runtime/lib/network/RelayObservable";
+import type {Sink} from "relay-runtime/network/RelayObservable";
 
 import {emitRelayCompatiblePayload, extractBoundary, streamMultipartMixed} from "./defer";
 
 type Headers = Record<string, string | undefined>;
 
 interface Configuration {
+  /** GraphQL endpoint, or a function resolving one (e.g. per-tenant routing). */
   url: string | (() => Promise<string>);
+  /** Static headers, or a function invoked per request to produce them. */
   headers?: Headers | ((request: RequestParameters) => Promise<Headers>);
+  /** Per-attempt request timeout in ms. See ky's `timeout` option. */
   timeout?: Options["timeout"];
+  /**
+   * Retry policy for retriable (non-mutation) operations. Queries are sent as
+   * GET, so the default `methods: ["get"]` applies. See ky's `retry` option.
+   */
   retry?: Options["retry"];
-  // Check if we should log the user out
+  /**
+   * Decides whether a response means the user's session is gone. Defaults to
+   * treating HTTP 403 as logged-out.
+   */
   logoutCheck?(response: Response): boolean;
-  // Handle 401
+  /** Invoked when `logoutCheck` matches, e.g. to clear the store / tokens. */
   handleLogout?(): Promise<void> | void;
-  // Hotchocolate will return an empty object when mutations fail
-  // This breaks the useMutation error handling because
-  // The error will arrive as the second argument to the onCompleted method instead of the onError
+  /**
+   * When a payload contains both `data` and `errors`, drop `data` so Relay
+   * routes the failure through `onError` instead of `onCompleted`. Defaults to
+   * `true` (works around servers such as Hot Chocolate that return an empty
+   * data object on error). Set to `false` to emit payloads verbatim.
+   */
   deleteDataIfError?: boolean;
+  /**
+   * Accept plain `application/json` responses in addition to the spec's
+   * `application/graphql-response+json`. Off by default.
+   */
   allowApplicationJsonContentType?: boolean;
-  beforeRequest?: BeforeRequestHook[];
-  afterResponse?: AfterResponseHook[];
-  beforeError?: BeforeErrorHook[];
+  /** ky lifecycle hooks (beforeRequest, afterResponse, beforeError, ...). */
+  hooks?: Hooks;
 }
 
 function defaultLogoutCheck(response: Response) {
@@ -50,12 +66,12 @@ export class ServerError extends Error {
 }
 
 export function createFetchQuery(config: Configuration): FetchFunction {
+  const deleteDataIfError = config.deleteDataIfError ?? true;
   return function fetchQuery(
     request: RequestParameters,
     variables: Variables,
     cacheConfig: CacheConfig,
     uploadables?: UploadableMap | null,
-    deleteDataIfError = true,
   ): Subscribable<GraphQLResponse> {
     return {
       subscribe: (sink: Sink<GraphQLResponse>) => {
@@ -135,12 +151,13 @@ async function doFetch(
     );
     const multipart = files.size > 0;
 
-    const headers = typeof config.headers === "function"
+    const headers: Headers = typeof config.headers === "function"
       ? await config.headers(request)
-      : config.headers ?? multipart
-      // Enable preflight header
-      ? {"graphql-preflight": "1"}
-      : {};
+      : {...config.headers};
+    if (multipart) {
+      // Enable the preflight header for graphql-multipart uploads.
+      headers["graphql-preflight"] = "1";
+    }
 
     let resp: Response;
 
@@ -148,39 +165,42 @@ async function doFetch(
       ? config.retry ?? defaultRetry
       : undefined;
 
+    const logoutHook: BeforeErrorHook = async ({error}) => {
+      // ky v2 runs beforeError for all error types (network, timeout, ...),
+      // but only HTTPError carries a response to inspect.
+      if (isHTTPError(error)) {
+        const {response} = error;
+        if (
+          config.logoutCheck
+            ? config.logoutCheck(response)
+            : defaultLogoutCheck(response)
+        ) {
+          if (config.handleLogout) {
+            await config.handleLogout();
+          }
+        }
+      }
+
+      return error;
+    };
+
     const options: Options = {
       timeout: config.timeout,
       retry,
       headers,
       signal,
-      method: request.operationKind == "query" ? "get" : "post",
       hooks: {
+        ...config.hooks,
         beforeError: config.handleLogout
-          ? [
-            async (error) => {
-              const {response} = error;
-              if (
-                config.logoutCheck
-                  ? config.logoutCheck(response)
-                  : defaultLogoutCheck(response)
-              ) {
-                if (config.handleLogout) {
-                  await config.handleLogout();
-                }
-              }
-
-              return error;
-            },
-            ...(config.beforeError ?? []),
-          ]
-          : config.beforeError ?? [],
-        beforeRequest: config.beforeRequest ?? [],
-        afterResponse: config.afterResponse ?? [],
+          ? [logoutHook, ...(config.hooks?.beforeError ?? [])]
+          : config.hooks?.beforeError,
       },
     };
 
     if (multipart) {
       resp = await postMultipart(url, options, request, variablesClone, files);
+    } else if (request.operationKind === "query") {
+      resp = await getQuery(url, options, request, variables);
     } else {
       resp = await postJson(url, options, request, variables);
     }
@@ -231,35 +251,37 @@ async function doFetch(
       );
     }
   } catch (ex) {
-    if (ex instanceof HTTPError) {
-      const contentType = ex.response.headers.get("content-type");
+    if (isHTTPError(ex)) {
+      const {response, data} = ex;
+      const contentType = response.headers.get("content-type");
+      // ky v2 auto-consumes the HTTPError body into `data`: a parsed object for
+      // JSON content types, plain text otherwise, or undefined when empty.
+      const asText = () => typeof data === "string" ? data : data == null ? "" : JSON.stringify(data);
 
       if (contentType == null) {
-        const text = await ex.response.text();
-        if (!ex.response.ok) {
-          throw new ServerError(ex.response.status, ex.response.statusText, text);
+        if (!response.ok) {
+          throw new ServerError(response.status, response.statusText, asText());
         }
         throw new ServerError(undefined, `Missing content-type on response`);
       } else if (contentType.startsWith("multipart/mixed")) {
-        const text = await ex.response.text();
-        throw new ServerError(ex.response.status, ex.response.statusText, text);
+        throw new ServerError(response.status, response.statusText, asText());
       } else if (contentType === "text/plain") {
-        throw new ServerError(undefined, await ex.response.text());
+        throw new ServerError(undefined, asText());
       } else if (
         contentType.startsWith("application/graphql-response+json")
         || (contentType.startsWith("application/json")
           && allowApplicationJsonContentType)
       ) {
         // We got a well formed graphql response
-        const payload: GraphQLResponse = await ex.response.json();
+        const payload = data as GraphQLResponse;
         if (!allowApplicationJsonContentType) {
           if (onPayload) {
             emitRelayCompatiblePayload(payload, onPayload);
             return;
           }
-          throw new Error(JSON.stringify(payload));
+          throw new Error(JSON.stringify(payload), {cause: ex});
         }
-        throw new Error(JSON.stringify(payload));
+        throw new Error(JSON.stringify(payload), {cause: ex});
       } else {
         throw new ServerError(
           undefined,
@@ -270,6 +292,23 @@ async function doFetch(
 
     throw ex;
   }
+}
+
+async function getQuery(
+  url: string,
+  options: Options,
+  request: RequestParameters,
+  variables: Variables,
+): Promise<Response> {
+  // GraphQL-over-HTTP GET: the operation is carried in the query string.
+  return ky.get(url, {
+    ...options,
+    searchParams: {
+      query: request.text ?? "",
+      operationName: request.name,
+      variables: JSON.stringify(variables),
+    },
+  });
 }
 
 async function postJson(

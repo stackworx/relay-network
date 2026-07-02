@@ -68,9 +68,7 @@ const network = Network.create(
 | `handleLogout`                    | `() => Promise<void> \| void`                                       | Called when `logoutCheck` returns true.                                                                                                            |
 | `deleteDataIfError`               | `boolean`                                                           | When a payload has both `data` and `errors`, drop `data` so Relay routes it to `onError`. Useful for servers that return `{}` on failed mutations. |
 | `allowApplicationJsonContentType` | `boolean`                                                           | Accept `application/json` responses in addition to `application/graphql-response+json`.                                                            |
-| `beforeRequest`                   | `ky` `BeforeRequestHook[]`                                          | Passed through to `ky`.                                                                                                                            |
-| `afterResponse`                   | `ky` `AfterResponseHook[]`                                         | Passed through to `ky`.                                                                                                                            |
-| `beforeError`                     | `ky` `BeforeErrorHook[]`                                           | Passed through to `ky`.                                                                                                                            |
+| `hooks`                           | `ky` `Hooks`                                                        | ky lifecycle hooks (`beforeRequest`, `afterResponse`, `beforeError`, ...). Merged ahead of the built-in logout `beforeError` hook.                 |
 
 ## Incremental delivery (`@defer` / `@stream`)
 
