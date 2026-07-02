@@ -1,8 +1,8 @@
 # Relay Network
 
 [![CI](https://github.com/stackworx/relay-network/actions/workflows/ci.yml/badge.svg)](https://github.com/stackworx/relay-network/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@stackworx.io/relay-network.svg)](https://www.npmjs.com/package/@stackworx.io/relay-network)
-[![license](https://img.shields.io/npm/l/@stackworx.io/relay-network.svg)](./LICENSE)
+[![npm](https://img.shields.io/npm/v/@stackworx/relay-network/alpha?label=npm%20%40alpha)](https://www.npmjs.com/package/@stackworx/relay-network)
+[![license](https://img.shields.io/npm/l/@stackworx/relay-network.svg)](./LICENSE)
 
 A [Relay](https://relay.dev) Network layer built on [ky](https://github.com/sindresorhus/ky).
 
@@ -17,7 +17,7 @@ Features:
 ## Installation
 
 ```bash
-npm add @stackworx.io/relay-network ky relay-runtime
+npm add @stackworx/relay-network ky relay-runtime
 ```
 
 `ky` and `relay-runtime` are peer dependencies.
@@ -26,7 +26,7 @@ npm add @stackworx.io/relay-network ky relay-runtime
 
 ```ts
 import {Network} from "relay-runtime";
-import {createFetchQuery} from "@stackworx.io/relay-network";
+import {createFetchQuery} from "@stackworx/relay-network";
 
 const network = Network.create(
   createFetchQuery({

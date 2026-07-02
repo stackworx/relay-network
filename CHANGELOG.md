@@ -1,12 +1,12 @@
 # Changelog
 
-## 2.0.0
+## 3.0.0-alpha.0
 
-A major release covering dependency upgrades, a reworked configuration surface,
-and behavioural fixes. **All items below are breaking** — read the migration
-notes before upgrading.
+The first public release: a major covering dependency upgrades, a reworked
+configuration surface, and behavioural fixes, shipped as an alpha prerelease.
+**All items below are breaking** — read the migration notes before upgrading.
 
-### Migration notes (1.x → 2.0.0)
+### Migration notes (1.x → 3.0.0)
 
 #### 1. Peer dependencies & Node
 

@@ -1,6 +1,6 @@
 {
-  "name": "@stackworx.io/relay-network",
-  "version": "2.0.0",
+  "name": "@stackworx/relay-network",
+  "version": "3.0.0-alpha.0",
   "description": "A Relay Network layer built on ky, with support for file uploads (GraphQL multipart request) and incremental delivery (@defer/@stream).",
   "license": "MIT",
   "author": "Stackworx <ciaran@stackworx.io> (https://stackworx.io)",
